@@ -153,12 +153,15 @@ describe('phone activities', () => {
       expect(leadRepo.saveResult).toHaveBeenCalledWith(7, { status: 'NO_DATA' })
     })
 
-    it('saves FAILED with the error', async () => {
+    it('saves FAILED with a user-safe message, never the internal error details', async () => {
       const { activities, leadRepo, run } = setup()
 
-      await run(activities.saveResult, 7, { status: 'FAILED', error: 'ORION: HTTP 500' })
+      await run(activities.saveResult, 7, { status: 'FAILED', error: 'ORION: HTTP 401: Unauthorized' })
 
-      expect(leadRepo.saveResult).toHaveBeenCalledWith(7, { status: 'FAILED', error: 'ORION: HTTP 500' })
+      expect(leadRepo.saveResult).toHaveBeenCalledWith(7, {
+        status: 'FAILED',
+        error: 'Phone lookup failed. Please try again later.',
+      })
     })
   })
 })

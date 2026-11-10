@@ -16,7 +16,8 @@ function setup(leadsInDb: LeadStartInfo[]) {
       calls.push(`start ${id}`)
     }),
   }
-  return { leads, workflows, calls, deps: { leads, workflows } }
+  const log = vi.fn()
+  return { leads, workflows, calls, log, deps: { leads, workflows, log } }
 }
 
 const fresh = (id: number): LeadStartInfo => ({ id, phoneNumber: null, status: null })
@@ -88,18 +89,28 @@ describe('startPhoneEnrichment', () => {
 
   it('marks the lead FAILED and reports it when the workflow cannot be started', async () => {
     const { deps, workflows, leads } = setup([fresh(1), fresh(2)])
-    vi.mocked(workflows.start).mockRejectedValueOnce(new Error('Temporal unavailable'))
+    vi.mocked(workflows.start).mockRejectedValueOnce(
+      new Error('14 UNAVAILABLE: connect ECONNREFUSED 127.0.0.1:7233')
+    )
 
     const result = await startPhoneEnrichment([1, 2], deps)
 
-    expect(result).toEqual({
-      started: [2],
-      skipped: [],
-      errors: [{ leadId: 1, error: 'Temporal unavailable' }],
-    })
+    expect(result).toEqual({ started: [2], skipped: [], errors: [{ leadId: 1 }] })
     expect(leads.saveResult).toHaveBeenCalledWith(1, {
       status: 'FAILED',
-      error: 'Could not start enrichment: Temporal unavailable',
+      error: 'Could not start phone lookup. Please try again.',
     })
+  })
+
+  it('keeps internal error details out of the result and the lead, and logs them server-side', async () => {
+    const { deps, workflows, leads, log } = setup([fresh(1)])
+    const internal = new Error('14 UNAVAILABLE: connect ECONNREFUSED 127.0.0.1:7233')
+    vi.mocked(workflows.start).mockRejectedValueOnce(internal)
+
+    const result = await startPhoneEnrichment([1], deps)
+
+    expect(JSON.stringify(result)).not.toContain('UNAVAILABLE')
+    expect(JSON.stringify(vi.mocked(leads.saveResult).mock.calls)).not.toContain('UNAVAILABLE')
+    expect(log).toHaveBeenCalledWith('Failed to start phone enrichment', { leadId: 1, error: internal })
   })
 })

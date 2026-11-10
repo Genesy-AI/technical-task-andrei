@@ -1,4 +1,5 @@
-import { ApplicationFailure, Context } from '@temporalio/activity'
+import { ApplicationFailure, Context, log } from '@temporalio/activity'
+import { USER_MESSAGES } from './domain/messages'
 import type { LeadRepositoryPort, PhoneProviderPort } from './domain/ports'
 import type { FinalOutcome, LeadForEnrichment, ProviderLookupResult, ProviderName } from './domain/types'
 
@@ -38,7 +39,11 @@ export function createPhoneActivities({ providers, leadRepo }: PhoneActivityDeps
     },
 
     async saveResult(leadId: number, outcome: FinalOutcome): Promise<void> {
-      await leadRepo.saveResult(leadId, outcome)
+      if (outcome.status !== 'FAILED') return leadRepo.saveResult(leadId, outcome)
+
+      // Provider errors stay internal (here and in the workflow result); the lead gets a safe text.
+      log.warn('Phone enrichment failed for every provider', { leadId, error: outcome.error })
+      await leadRepo.saveResult(leadId, { status: 'FAILED', error: USER_MESSAGES.lookupFailed })
     },
   }
 }

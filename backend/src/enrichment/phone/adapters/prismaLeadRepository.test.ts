@@ -104,14 +104,17 @@ describe('PrismaLeadRepository', () => {
     it('on FAILED stores the error', async () => {
       const lead = await createLead({ phoneEnrichmentProvider: 'NIMBUS' })
 
-      await repo.saveResult(lead.id, { status: 'FAILED', error: 'ORION: HTTP 500; ASTRA: timeout' })
+      await repo.saveResult(lead.id, {
+        status: 'FAILED',
+        error: 'Phone lookup failed. Please try again later.',
+      })
 
       const row = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id } })
       expect(row).toMatchObject({
         phoneNumber: null,
         phoneEnrichmentStatus: 'FAILED',
         phoneEnrichmentProvider: null,
-        phoneEnrichmentError: 'ORION: HTTP 500; ASTRA: timeout',
+        phoneEnrichmentError: 'Phone lookup failed. Please try again later.',
       })
     })
 
@@ -140,7 +143,7 @@ describe('PrismaLeadRepository', () => {
         phoneNumber: '+1 555',
         phoneEnrichmentStatus: 'FAILED',
         phoneEnrichmentProvider: 'ASTRA',
-        phoneEnrichmentError: 'ORION: HTTP 500',
+        phoneEnrichmentError: 'Phone lookup failed. Please try again later.',
       })
 
       await repo.markPending(lead.id)
