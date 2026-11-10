@@ -27,3 +27,6 @@ export type FinalOutcome =
   | { status: 'FOUND'; phone: string; source: ProviderName }
   | { status: 'NO_DATA' }
   | { status: 'FAILED'; error: string }
+
+/** What the findPhoneWith activity returns for one provider. Errors are thrown, not returned. */
+export type ProviderLookupResult = { kind: 'found'; phone: string } | { kind: 'none' } | { kind: 'skipped' }
