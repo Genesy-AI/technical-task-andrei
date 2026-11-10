@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto'
 import path from 'path'
 import { verifyEmailWorkflow } from './workflows'
 import * as realActivities from './activities'
+import { installTemporalTestRuntime } from '../test/installTemporalTestRuntime'
 
 type Activities = Pick<typeof realActivities, 'verifyEmail'>
 
@@ -14,6 +15,7 @@ describe('verifyEmailWorkflow', () => {
   let env: TestWorkflowEnvironment
 
   beforeAll(async () => {
+    installTemporalTestRuntime()
     env = await TestWorkflowEnvironment.createTimeSkipping()
   }, 120_000)
 

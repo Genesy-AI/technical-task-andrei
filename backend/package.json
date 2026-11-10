@@ -11,6 +11,7 @@
     "gen:prisma": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "test": "vitest",
+    "test:verbose": "TEMPORAL_LOG_LEVEL=INFO vitest",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage"
