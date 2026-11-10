@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import { TestWorkflowEnvironment } from '@temporalio/testing'
-import { Runtime, DefaultLogger, Worker } from '@temporalio/worker'
+import { temporalTestLogger } from '../../test/temporalTestLogger'
+import { Runtime, Worker } from '@temporalio/worker'
 import { ApplicationFailure } from '@temporalio/activity'
 import type { PhoneActivities } from './activities'
 import type { FinalOutcome, LeadForEnrichment, ProviderLookupResult, ProviderName } from './domain/types'
@@ -28,7 +29,7 @@ const badAuth: ProviderBehaviour = () => ApplicationFailure.nonRetryable('HTTP 4
 let env: TestWorkflowEnvironment
 
 beforeAll(async () => {
-  Runtime.install({ logger: new DefaultLogger('WARN') })
+  Runtime.install({ logger: temporalTestLogger() })
   env = await TestWorkflowEnvironment.createTimeSkipping()
 }, 120_000)
 

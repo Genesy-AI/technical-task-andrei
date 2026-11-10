@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ApplicationFailure } from '@temporalio/activity'
 import { MockActivityEnvironment } from '@temporalio/testing'
+import { temporalTestLogger } from '../../test/temporalTestLogger'
 import { createPhoneActivities } from './activities'
 import type { LeadRepositoryPort, PhoneProviderPort } from './domain/ports'
 import type { LeadForEnrichment, ProviderName } from './domain/types'
@@ -33,7 +34,7 @@ function fakeRepo(): LeadRepositoryPort {
 function setup(providers: PhoneProviderPort[] = [fakeProvider('ORION')]) {
   const leadRepo = fakeRepo()
   const activities = createPhoneActivities({ providers, leadRepo })
-  const env = new MockActivityEnvironment()
+  const env = new MockActivityEnvironment(undefined, { logger: temporalTestLogger() })
   // Typed wrapper: env.run widens literal args ('ORION' -> string), which breaks tsc.
   const run = <F extends (...args: any[]) => Promise<any>>(fn: F, ...args: Parameters<F>) =>
     env.run(fn, ...args) as ReturnType<F>

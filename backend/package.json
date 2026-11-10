@@ -12,6 +12,7 @@
     "migrate:dev": "prisma migrate dev",
     "test": "vitest",
     "test:watch": "vitest --watch",
+    "test:debug": "DEBUG_TESTS=1 vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage"
   },

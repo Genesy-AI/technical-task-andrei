@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { WorkflowClient } from '@temporalio/client'
 import { TestWorkflowEnvironment } from '@temporalio/testing'
-import { DefaultLogger, Runtime } from '@temporalio/worker'
+import { temporalTestLogger } from '../../../test/temporalTestLogger'
+import { Runtime } from '@temporalio/worker'
 import { TemporalPhoneWorkflowStarter, phoneWorkflowId } from './temporalWorkflowStarter'
 import { enrichPhoneWorkflow } from '../workflow'
 
@@ -34,7 +35,7 @@ describe('TemporalPhoneWorkflowStarter', () => {
     let env: TestWorkflowEnvironment
 
     beforeAll(async () => {
-      Runtime.install({ logger: new DefaultLogger('WARN') })
+      Runtime.install({ logger: temporalTestLogger() })
       env = await TestWorkflowEnvironment.createTimeSkipping()
     }, 120_000)
 
