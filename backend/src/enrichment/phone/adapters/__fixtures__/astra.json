@@ -1,0 +1,23 @@
+{
+  "found": {
+    "status": 200,
+    "request": { "email": "john.doe@example.com" },
+    "body": { "phoneNmbr": "8391612328" }
+  },
+  "notFound": {
+    "status": 200,
+    "request": { "email": "john.doe@example.com" },
+    "body": {},
+    "note": "Observed ~1 in 4 calls. phoneNmbr is missing (undefined), returned fast (~0.2s)."
+  },
+  "notFoundNull": {
+    "status": 200,
+    "body": { "phoneNmbr": null },
+    "note": "Not observed. Shape taken from the provider docs."
+  },
+  "unauthorized": {
+    "status": 401,
+    "body": "Unauthorized",
+    "note": "Plain text body, not JSON."
+  }
+}
