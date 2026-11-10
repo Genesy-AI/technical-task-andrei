@@ -154,6 +154,32 @@ John,Doe,john@example.com,,`
     expect(result[0].isValid).toBe(true)
   })
 
+  it('should drop invalid country codes and keep the lead valid', () => {
+    const csv = `firstName,lastName,email,countryCode
+Amanda,James,kevin03@beard.net,12
+Latasha,Martin,aprilmcconnell@gmail.com,XXX
+Linda,Choi,ramireztracy@norton-jackson.biz,XX`
+
+    const result = parseCsv(csv)
+
+    expect(result).toHaveLength(3)
+    result.forEach((lead) => {
+      expect(lead.countryCode).toBeUndefined()
+      expect(lead.isValid).toBe(true)
+    })
+  })
+
+  it('should keep valid country codes, normalized to uppercase', () => {
+    const csv = `firstName,lastName,email,countryCode
+John,Doe,john@example.com,ES
+Jane,Smith,jane@example.com,fr`
+
+    const result = parseCsv(csv)
+
+    expect(result[0].countryCode).toBe('ES')
+    expect(result[1].countryCode).toBe('FR')
+  })
+
   it('should preserve row index correctly', () => {
     const csv = `firstName,lastName,email
 John,Doe,john@example.com

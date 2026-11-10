@@ -17,6 +17,14 @@ export const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email)
 }
 
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' })
+
+// Invalid codes are dropped (countryCode is optional). Intl echoes back unknown codes like "XX".
+const normalizeCountryCode = (value: string): string | undefined => {
+  const code = value.toUpperCase()
+  return /^[A-Z]{2}$/.test(code) && regionNames.of(code) !== code ? code : undefined
+}
+
 export const parseCsv = (content: string): CsvLead[] => {
   if (!content?.trim()) {
     throw new Error('CSV content cannot be empty')
@@ -68,7 +76,7 @@ export const parseCsv = (content: string): CsvLead[] => {
           lead.jobTitle = trimmedValue || undefined
           break
         case 'countrycode':
-          lead.countryCode = trimmedValue || undefined
+          lead.countryCode = normalizeCountryCode(trimmedValue)
           break
         case 'companyname':
           lead.companyName = trimmedValue || undefined
