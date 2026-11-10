@@ -74,6 +74,14 @@ const HEADER_ALIASES: Record<string, CsvField> = {
   linkedinprofile: 'linkedinUrl',
 }
 
+// Own keys only, so headers like "constructor" don't hit Object.prototype.
+export const headerToField = (header: string): CsvField | undefined => {
+  const normalized = header.toLowerCase().replace(/[^a-z]/g, '')
+  return Object.prototype.hasOwnProperty.call(HEADER_ALIASES, normalized)
+    ? HEADER_ALIASES[normalized]
+    : undefined
+}
+
 export const parseCsv = (content: string): CsvLead[] => {
   if (!content?.trim()) {
     throw new Error('CSV content cannot be empty')
@@ -108,7 +116,7 @@ export const parseCsv = (content: string): CsvLead[] => {
     const raw: Partial<Record<CsvField, string>> = {}
 
     Object.entries(row).forEach(([header, value]) => {
-      const field = HEADER_ALIASES[header.toLowerCase().replace(/[^a-z]/g, '')]
+      const field = headerToField(header)
       if (field) raw[field] = value?.trim() || ''
     })
 

@@ -6,14 +6,10 @@ const TEMPLATE_FIELD_KEYS = new Set<string>(TEMPLATE_FIELDS.map((field) => field
 
 const isTemplateFieldKey = (name: string): name is TemplateFieldKey => TEMPLATE_FIELD_KEYS.has(name)
 
+// Replaces every {field} in one pass. Values are inserted as plain text:
+// no `$&`-style patterns and no expanding of `{...}` found inside a value.
 export function generateMessageFromTemplate(template: string, lead: Lead): string {
-  let message = template
-
-  const templateVariables = template.match(/\{(\w+)\}/g) || []
-
-  for (const variable of templateVariables) {
-    const fieldName = variable.slice(1, -1)
-
+  return template.replace(/\{(\w+)\}/g, (_match, fieldName: string) => {
     if (!isTemplateFieldKey(fieldName)) {
       throw new Error(`Unknown field in template: ${fieldName}`)
     }
@@ -24,8 +20,6 @@ export function generateMessageFromTemplate(template: string, lead: Lead): strin
       throw new Error(`Missing required field: ${fieldName}`)
     }
 
-    message = message.replace(new RegExp(`\\{${fieldName}\\}`, 'g'), String(fieldValue))
-  }
-
-  return message
+    return String(fieldValue)
+  })
 }

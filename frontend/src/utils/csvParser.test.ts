@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCsv, isValidEmail, parseYearsAtCompany, normalizeLinkedinUrl } from './csvParser'
+import { parseCsv, isValidEmail, parseYearsAtCompany, normalizeLinkedinUrl, headerToField } from './csvParser'
 
 describe('isValidEmail', () => {
   it('should return true for valid email addresses', () => {
@@ -339,5 +339,32 @@ Chad,Smith,hancockjames@gmail.com,Child psychotherapist,TV,Global Tech Solutions
     expect(lead.phoneNumber).toBeUndefined()
     expect(lead.yearsAtCompany).toBeUndefined()
     expect(lead.linkedinUrl).toBeUndefined()
+  })
+})
+
+describe('headerToField', () => {
+  it('maps known headers and aliases, ignoring case and non-letters', () => {
+    expect(headerToField('First Name')).toBe('firstName')
+    expect(headerToField('years_in_role')).toBe('yearsAtCompany')
+    expect(headerToField('LinkedIn Profile')).toBe('linkedinUrl')
+  })
+
+  it('returns undefined for unknown headers', () => {
+    expect(headerToField('Mobile')).toBeUndefined()
+  })
+
+  it('does not match built-in object properties', () => {
+    for (const header of ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf']) {
+      expect(headerToField(header)).toBeUndefined()
+    }
+  })
+})
+
+describe('parseCsv - unusual headers', () => {
+  it('ignores a "constructor" column and still parses the row', () => {
+    const [lead] = parseCsv('firstName,lastName,email,constructor\nJohn,Doe,john@example.com,boom')
+
+    expect(lead.isValid).toBe(true)
+    expect(lead.firstName).toBe('John')
   })
 })

@@ -219,6 +219,26 @@ describe('generateMessageFromTemplate', () => {
     })
   })
 
+  describe('values that look like template syntax', () => {
+    it('should insert values with $ patterns as plain text', () => {
+      const result = generateMessageFromTemplate('Hi {firstName}', { firstName: "Pay $& now $1 $$ $` $'" })
+      expect(result).toBe("Hi Pay $& now $1 $$ $` $'")
+    })
+
+    it('should not expand placeholders found inside a value', () => {
+      const result = generateMessageFromTemplate('{firstName} / {email}', {
+        firstName: '{email}',
+        email: 'x@y.z',
+      })
+      expect(result).toBe('{email} / x@y.z')
+    })
+
+    it('should not fail on a placeholder inside a value that the lead lacks', () => {
+      const result = generateMessageFromTemplate('Hi {firstName}', { firstName: '{lastName}' })
+      expect(result).toBe('Hi {lastName}')
+    })
+  })
+
   describe('special characters and encoding', () => {
     it('should handle special characters in field values', () => {
       const specialLead: Lead = {
