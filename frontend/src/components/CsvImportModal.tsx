@@ -100,6 +100,9 @@ export const CsvImportModal: FC<CsvImportModalProps> = ({ isOpen, onClose }) => 
         jobTitle: lead.jobTitle || undefined,
         countryCode: lead.countryCode || undefined,
         companyName: lead.companyName || undefined,
+        phoneNumber: lead.phoneNumber,
+        yearsAtCompany: lead.yearsAtCompany,
+        linkedinUrl: lead.linkedinUrl,
       }))
 
       return api.leads.bulkImport({ leads: leadsToImport })

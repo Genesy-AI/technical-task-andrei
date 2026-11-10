@@ -4,6 +4,7 @@ import { Connection, Client } from '@temporalio/client'
 import { verifyEmailWorkflow } from './workflows'
 import { generateMessageFromTemplate } from './utils/messageGenerator'
 import { TEMPLATE_FIELDS } from './utils/templateFields'
+import { toLeadCreateData } from './utils/leadImport'
 import { runTemporalWorker } from './worker'
 const prisma = new PrismaClient()
 const app = express()
@@ -226,16 +227,7 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
 
     for (const lead of uniqueLeads) {
       try {
-        await prisma.lead.create({
-          data: {
-            firstName: lead.firstName.trim(),
-            lastName: lead.lastName.trim(),
-            email: lead.email.trim(),
-            jobTitle: lead.jobTitle ? lead.jobTitle.trim() : null,
-            countryCode: lead.countryCode ? lead.countryCode.trim() : null,
-            companyName: lead.companyName ? lead.companyName.trim() : null,
-          },
-        })
+        await prisma.lead.create({ data: toLeadCreateData(lead) })
         importedCount++
       } catch (error) {
         errors.push({
