@@ -17,6 +17,10 @@ const baseLead: Lead = {
   phoneNumber: '+1 555 0100',
   yearsAtCompany: 4,
   linkedinUrl: 'https://linkedin.com/in/johndoe',
+  phoneSource: null,
+  phoneEnrichmentStatus: null,
+  phoneEnrichmentProvider: null,
+  phoneEnrichmentError: null,
 }
 
 const renderRow = (lead: Lead) => {
@@ -98,6 +102,16 @@ describe('LEAD_COLUMNS', () => {
     it('renders 0 years as 0, not as empty', () => {
       const cell = renderRow({ ...baseLead, yearsAtCompany: 0 })
       expect(cell('yearsAtCompany')).toHaveTextContent(/^0$/)
+    })
+
+    it('renders the live phone enrichment state in the phone column', () => {
+      const cell = renderRow({
+        ...baseLead,
+        phoneNumber: null,
+        phoneEnrichmentStatus: 'RUNNING',
+        phoneEnrichmentProvider: 'ORION',
+      })
+      expect(cell('phoneNumber')).toHaveTextContent('Checking Orion…')
     })
 
     it('renders "-" when phone, years or LinkedIn are empty', () => {
