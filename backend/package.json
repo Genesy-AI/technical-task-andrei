@@ -16,6 +16,8 @@
     "test:coverage": "vitest --coverage"
   },
   "devDependencies": {
+    "@temporalio/common": "1.13.0",
+    "@temporalio/testing": "1.13.0",
     "@types/express": "^5.0.3",
     "@types/node": "^22.18.1",
     "@vitest/ui": "^3.2.4",

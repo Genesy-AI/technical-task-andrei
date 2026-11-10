@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { api } from '../api'
 import { MessageTemplateModal } from './MessageTemplateModal'
 import { CsvImportModal } from './CsvImportModal'
+import { getVerifyEmailsErrorFeedback, getVerifyEmailsFeedback } from '../utils/verifyEmailsFeedback'
 
 export const LeadsList: FC = () => {
   const [selectedLeads, setSelectedLeads] = useState<number[]>([])
@@ -37,17 +38,21 @@ export const LeadsList: FC = () => {
 
   const verifyEmailsMutation = useMutation({
     mutationFn: async (ids: number[]) => api.leads.verifyEmails({ leadIds: ids }),
+    onMutate: () => {
+      setIsEnrichDropdownOpen(false)
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['leads', 'getMany'] })
-      setIsEnrichDropdownOpen(false)
-      toast.success(
-        data.verifiedCount === 1
-          ? `Verified ${data.verifiedCount} email`
-          : `Verified ${data.verifiedCount} emails`
-      )
+      const { type, message } = getVerifyEmailsFeedback(data)
+      if (type === 'success') toast.success(message)
+      else if (type === 'warning') toast(message, { icon: '⚠️', duration: 8000 })
+      else toast.error(message, { duration: 8000 })
     },
-    onError: () => {
-      toast.error('Failed to verify emails. Please try again.')
+    onError: (error) => {
+      const { timedOut, message } = getVerifyEmailsErrorFeedback(error)
+      // Leads that finished before the timeout are already saved.
+      if (timedOut) queryClient.invalidateQueries({ queryKey: ['leads', 'getMany'] })
+      toast.error(message, { duration: 8000 })
     },
   })
 

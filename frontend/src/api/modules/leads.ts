@@ -9,6 +9,9 @@ import { LeadsBulkImportInput, LeadsBulkImportOutput } from '../types/leads/bulk
 import { LeadsVerifyEmailsInput, LeadsVerifyEmailsOutput } from '../types/leads/verifyEmails'
 import { ApiModule, endpoint } from '../utils'
 
+/** Backend worst case is ~33s per batch of 5 leads; don't leave the user waiting forever. */
+export const VERIFY_EMAILS_TIMEOUT_MS = 60_000
+
 export const leadsApi = {
   getMany: endpoint<LeadsGetManyOutput, LeadsGetManyInput>('get', '/leads'),
   getOne: endpoint<LeadsGetOneOutput, LeadsGetOneInput>('get', ({ id }) => `/leads/${id}`),
@@ -21,5 +24,7 @@ export const leadsApi = {
     '/leads/generate-messages'
   ),
   bulkImport: endpoint<LeadsBulkImportOutput, LeadsBulkImportInput>('post', '/leads/bulk'),
-  verifyEmails: endpoint<LeadsVerifyEmailsOutput, LeadsVerifyEmailsInput>('post', '/leads/verify-emails'),
+  verifyEmails: endpoint<LeadsVerifyEmailsOutput, LeadsVerifyEmailsInput>('post', '/leads/verify-emails', {
+    timeout: VERIFY_EMAILS_TIMEOUT_MS,
+  }),
 } as const satisfies ApiModule
