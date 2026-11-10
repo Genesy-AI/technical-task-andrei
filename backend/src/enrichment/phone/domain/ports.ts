@@ -22,3 +22,17 @@ export interface LeadRepositoryPort {
   markProgress(leadId: number, provider: ProviderName): Promise<void>
   saveResult(leadId: number, result: EnrichmentResultUpdate): Promise<void>
 }
+
+export type LeadStartInfo = { id: number; phoneNumber: string | null; status: EnrichmentStatus | null }
+
+/** Storage needed by the API when starting enrichment. */
+export interface EnrichmentStartRepositoryPort {
+  getStartInfo(leadIds: number[]): Promise<LeadStartInfo[]>
+  markPending(leadId: number): Promise<void>
+  saveResult(leadId: number, result: EnrichmentResultUpdate): Promise<void>
+}
+
+/** Starts (or attaches to) the enrichment workflow for one lead. */
+export interface PhoneWorkflowStarterPort {
+  start(leadId: number): Promise<void>
+}

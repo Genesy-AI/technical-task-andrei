@@ -119,4 +119,39 @@ describe('PrismaLeadRepository', () => {
       await expect(repo.saveResult(999_999, { status: 'NO_DATA' })).resolves.toBeUndefined()
     })
   })
+
+  describe('getStartInfo', () => {
+    it('returns id, phone and status for the leads that exist', async () => {
+      const a = await createLead({ phoneNumber: '+1 555', phoneEnrichmentStatus: 'FOUND' })
+      const b = await createLead({ email: 'b@acme.com' })
+
+      const info = await repo.getStartInfo([a.id, b.id, 999_999])
+
+      expect(info.sort((x, y) => x.id - y.id)).toEqual([
+        { id: a.id, phoneNumber: '+1 555', status: 'FOUND' },
+        { id: b.id, phoneNumber: null, status: null },
+      ])
+    })
+  })
+
+  describe('markPending', () => {
+    it('sets status PENDING and clears provider and error, keeping the phone', async () => {
+      const lead = await createLead({
+        phoneNumber: '+1 555',
+        phoneEnrichmentStatus: 'FAILED',
+        phoneEnrichmentProvider: 'ASTRA',
+        phoneEnrichmentError: 'ORION: HTTP 500',
+      })
+
+      await repo.markPending(lead.id)
+
+      const row = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id } })
+      expect(row).toMatchObject({
+        phoneNumber: '+1 555',
+        phoneEnrichmentStatus: 'PENDING',
+        phoneEnrichmentProvider: null,
+        phoneEnrichmentError: null,
+      })
+    })
+  })
 })

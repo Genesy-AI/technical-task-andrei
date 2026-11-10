@@ -6,9 +6,27 @@ import { verifyEmailWorkflow } from './workflows'
 import { generateMessageFromTemplate } from './utils/messageGenerator'
 import { TEMPLATE_FIELDS } from './utils/templateFields'
 import { toLeadCreateData } from './utils/leadImport'
-import { runTemporalWorker } from './worker'
+import { runTemporalWorker, TASK_QUEUE } from './worker'
+import { startPhoneEnrichment } from './enrichment/phone/startPhoneEnrichment'
+import { PrismaLeadRepository } from './enrichment/phone/adapters/prismaLeadRepository'
+import { TemporalPhoneWorkflowStarter } from './enrichment/phone/adapters/temporalWorkflowStarter'
 const prisma = new PrismaClient()
 const app = express()
+const phoneLeadRepo = new PrismaLeadRepository(prisma)
+
+// One shared Temporal client, connected on first use. Reset on failure so the next call retries.
+let temporalClient: Promise<Client> | undefined
+function getTemporalClient(): Promise<Client> {
+  if (!temporalClient) {
+    temporalClient = Connection.connect({ address: 'localhost:7233' }).then(
+      (connection) => new Client({ connection, namespace: 'default' })
+    )
+    temporalClient.catch(() => {
+      temporalClient = undefined
+    })
+  }
+  return temporalClient
+}
 app.use(express.json())
 
 app.use(function (req, res, next) {
@@ -308,6 +326,30 @@ app.post('/leads/verify-emails', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error verifying emails:', error)
     res.status(500).json({ error: 'Failed to verify emails' })
+  }
+})
+
+app.post('/leads/enrich-phone', async (req: Request, res: Response) => {
+  const { leadIds } = (req.body ?? {}) as { leadIds?: unknown }
+
+  const isLeadId = (id: unknown) =>
+    (typeof id === 'number' && Number.isInteger(id) && id > 0) ||
+    (typeof id === 'string' && /^[1-9]\d*$/.test(id))
+  if (!Array.isArray(leadIds) || leadIds.length === 0 || !leadIds.every(isLeadId)) {
+    return res.status(400).json({ error: 'leadIds must be a non-empty array of lead ids' })
+  }
+
+  try {
+    const client = await getTemporalClient()
+    const result = await startPhoneEnrichment(leadIds.map(Number), {
+      leads: phoneLeadRepo,
+      workflows: new TemporalPhoneWorkflowStarter(client.workflow, TASK_QUEUE),
+    })
+    // 202: workflows run in the background; progress is on each lead (phoneEnrichmentStatus).
+    res.status(202).json(result)
+  } catch (error) {
+    console.error('Error starting phone enrichment:', error)
+    res.status(500).json({ error: 'Failed to start phone enrichment' })
   }
 })
 
