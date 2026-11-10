@@ -11,6 +11,9 @@ importers:
       '@prisma/client':
         specifier: ^6.15.0
         version: 6.15.0(prisma@6.15.0(typescript@5.9.2))(typescript@5.9.2)
+      '@temporalio/activity':
+        specifier: ^1.13.0
+        version: 1.13.0
       '@temporalio/client':
         specifier: ^1.13.0
         version: 1.13.0

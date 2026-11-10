@@ -6,7 +6,7 @@ export interface PhoneProviderPort {
   /** False when the lead lacks the input this provider needs. The provider is then skipped. */
   canHandle(lead: LeadForEnrichment): boolean
   /** Phone number, or null when the provider has no data. Throws on transport/API errors. */
-  findPhone(lead: LeadForEnrichment): Promise<string | null>
+  findPhone(lead: LeadForEnrichment, options?: { signal?: AbortSignal }): Promise<string | null>
 }
 
 export type EnrichmentResultUpdate = {
