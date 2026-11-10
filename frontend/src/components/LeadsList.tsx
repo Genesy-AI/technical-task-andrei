@@ -5,7 +5,7 @@ import { api } from '../api'
 import { MessageTemplateModal } from './MessageTemplateModal'
 import { CsvImportModal } from './CsvImportModal'
 import { DEFAULT_CELL_CLASS, LEAD_COLUMNS } from './leadColumns'
-import { enrichPhoneFeedback, leadsPollInterval } from '../utils/phoneEnrichment'
+import { MAX_LEADS_PER_ENRICH, enrichPhoneFeedback, leadsPollInterval } from '../utils/phoneEnrichment'
 
 export const LeadsList: FC = () => {
   const [selectedLeads, setSelectedLeads] = useState<number[]>([])
@@ -69,6 +69,17 @@ export const LeadsList: FC = () => {
       toast.error('Failed to start phone enrichment. Please try again.')
     },
   })
+
+  const handleEnrichPhone = () => {
+    if (selectedLeads.length > MAX_LEADS_PER_ENRICH) {
+      setIsEnrichDropdownOpen(false)
+      toast.error(
+        `You can enrich at most ${MAX_LEADS_PER_ENRICH} leads at a time. ${selectedLeads.length} are selected.`
+      )
+      return
+    }
+    enrichPhoneMutation.mutate(selectedLeads)
+  }
 
   const handleSelectAll = (checked: boolean) => {
     if (checked && leads.data) {
@@ -197,7 +208,7 @@ export const LeadsList: FC = () => {
                       </div>
                     </button>
                     <button
-                      onClick={() => enrichPhoneMutation.mutate(selectedLeads)}
+                      onClick={handleEnrichPhone}
                       disabled={enrichPhoneMutation.isPending}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-wait transition-colors"
                     >

@@ -35,4 +35,6 @@ export interface EnrichmentStartRepositoryPort {
 /** Starts (or attaches to) the enrichment workflow for one lead. */
 export interface PhoneWorkflowStarterPort {
   start(leadId: number): Promise<void>
+  /** True only if the lead's workflow is open right now (Temporal is the source of truth). */
+  isRunning(leadId: number): Promise<boolean>
 }

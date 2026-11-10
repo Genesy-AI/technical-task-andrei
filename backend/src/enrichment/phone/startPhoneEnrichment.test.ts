@@ -15,6 +15,7 @@ function setup(leadsInDb: LeadStartInfo[]) {
     start: vi.fn(async (id: number) => {
       calls.push(`start ${id}`)
     }),
+    isRunning: vi.fn(async () => true),
   }
   const log = vi.fn()
   return { leads, workflows, calls, log, deps: { leads, workflows, log } }
@@ -67,7 +68,7 @@ describe('startPhoneEnrichment', () => {
   })
 
   it.each(['PENDING', 'RUNNING'] as const)(
-    'skips leads already %s without touching their status',
+    'skips leads already %s (run still open in Temporal) without touching their status',
     async (status) => {
       const { deps, leads, workflows } = setup([{ id: 1, phoneNumber: null, status }])
 
@@ -78,6 +79,41 @@ describe('startPhoneEnrichment', () => {
       expect(workflows.start).not.toHaveBeenCalled()
     }
   )
+
+  it.each(['PENDING', 'RUNNING'] as const)(
+    'restarts leads stuck in %s whose run is gone (terminated, crashed)',
+    async (status) => {
+      const { deps, workflows, calls } = setup([{ id: 1, phoneNumber: null, status }])
+      vi.mocked(workflows.isRunning).mockResolvedValue(false)
+
+      const result = await startPhoneEnrichment([1], deps)
+
+      expect(workflows.isRunning).toHaveBeenCalledWith(1)
+      expect(result).toEqual({ started: [1], skipped: [], errors: [] })
+      expect(calls).toEqual(['pending 1', 'start 1'])
+    }
+  )
+
+  it('does not ask Temporal about leads that are not marked as running', async () => {
+    const { deps, workflows } = setup([fresh(1)])
+
+    await startPhoneEnrichment([1], deps)
+
+    expect(workflows.isRunning).not.toHaveBeenCalled()
+  })
+
+  it('reports an error and leaves the status alone when Temporal cannot be asked', async () => {
+    const { deps, workflows, leads, log } = setup([{ id: 1, phoneNumber: null, status: 'RUNNING' }])
+    const internal = new Error('14 UNAVAILABLE')
+    vi.mocked(workflows.isRunning).mockRejectedValue(internal)
+
+    const result = await startPhoneEnrichment([1], deps)
+
+    expect(result).toEqual({ started: [], skipped: [], errors: [{ leadId: 1 }] })
+    expect(leads.markPending).not.toHaveBeenCalled()
+    expect(leads.saveResult).not.toHaveBeenCalled()
+    expect(log).toHaveBeenCalledWith('Failed to check phone enrichment run', { leadId: 1, error: internal })
+  })
 
   it.each(['NO_DATA', 'FAILED'] as const)('re-runs leads that finished with %s', async (status) => {
     const { deps } = setup([{ id: 1, phoneNumber: null, status }])

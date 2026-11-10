@@ -16,7 +16,7 @@ describe('TemporalPhoneWorkflowStarter', () => {
   it('starts enrichPhoneWorkflow with a per-lead id and dedupe policies', async () => {
     const start = vi.fn().mockResolvedValue({})
     const starter = new TemporalPhoneWorkflowStarter(
-      { start } as unknown as Pick<WorkflowClient, 'start'>,
+      { start } as unknown as Pick<WorkflowClient, 'start' | 'getHandle'>,
       'myQueue'
     )
 
@@ -66,6 +66,29 @@ describe('TemporalPhoneWorkflowStarter', () => {
 
       expect(second.runId).not.toBe(first.runId)
       expect(second.status.name).toBe('RUNNING')
+    })
+
+    describe('isRunning', () => {
+      it('is true while the run is open', async () => {
+        const starter = new TemporalPhoneWorkflowStarter(env.client.workflow, 'no-worker')
+        await starter.start(2001)
+
+        await expect(starter.isRunning(2001)).resolves.toBe(true)
+      })
+
+      it('is false after the run was terminated (e.g. stopped by hand)', async () => {
+        const starter = new TemporalPhoneWorkflowStarter(env.client.workflow, 'no-worker')
+        await starter.start(2002)
+        await env.client.workflow.getHandle(phoneWorkflowId(2002)).terminate('test')
+
+        await expect(starter.isRunning(2002)).resolves.toBe(false)
+      })
+
+      it('is false when there was never a run for the lead', async () => {
+        const starter = new TemporalPhoneWorkflowStarter(env.client.workflow, 'no-worker')
+
+        await expect(starter.isRunning(2003)).resolves.toBe(false)
+      })
     })
   })
 })

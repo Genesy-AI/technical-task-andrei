@@ -116,4 +116,23 @@ describe('LeadsList – Enrich Phone', () => {
       expect(toast.error).toHaveBeenCalledWith('Failed to start phone enrichment. Please try again.')
     )
   })
+
+  it('explains the limit instead of calling the API when more than 100 leads are selected', async () => {
+    vi.mocked(api.leads.getMany).mockResolvedValue(Array.from({ length: 101 }, (_, i) => lead(i + 1)))
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <LeadsList />
+      </QueryClientProvider>
+    )
+    await screen.findByText('lead101@acme.com', { exact: false })
+    await user.click(screen.getAllByRole('checkbox')[0]) // select all
+    await user.click(screen.getByRole('button', { name: /enrich/i }))
+
+    await user.click(screen.getByRole('button', { name: /enrich phone/i }))
+
+    expect(toast.error).toHaveBeenCalledWith('You can enrich at most 100 leads at a time. 101 are selected.')
+    expect(api.leads.enrichPhone).not.toHaveBeenCalled()
+  })
 })

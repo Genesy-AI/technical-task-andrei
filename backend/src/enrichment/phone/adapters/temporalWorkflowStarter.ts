@@ -1,4 +1,4 @@
-import type { WorkflowClient } from '@temporalio/client'
+import { WorkflowNotFoundError, type WorkflowClient } from '@temporalio/client'
 import type { PhoneWorkflowStarterPort } from '../domain/ports'
 import { enrichPhoneWorkflow } from '../workflow'
 
@@ -7,7 +7,7 @@ export const phoneWorkflowId = (leadId: number): string => `enrich-phone-${leadI
 
 export class TemporalPhoneWorkflowStarter implements PhoneWorkflowStarterPort {
   constructor(
-    private readonly workflows: Pick<WorkflowClient, 'start'>,
+    private readonly workflows: Pick<WorkflowClient, 'start' | 'getHandle'>,
     private readonly taskQueue: string
   ) {}
 
@@ -21,5 +21,15 @@ export class TemporalPhoneWorkflowStarter implements PhoneWorkflowStarterPort {
       // Previous run finished (NO_DATA / FAILED) -> allow enriching again.
       workflowIdReusePolicy: 'ALLOW_DUPLICATE',
     })
+  }
+
+  async isRunning(leadId: number): Promise<boolean> {
+    try {
+      const { status } = await this.workflows.getHandle(phoneWorkflowId(leadId)).describe()
+      return status.name === 'RUNNING'
+    } catch (error) {
+      if (error instanceof WorkflowNotFoundError) return false
+      throw error
+    }
   }
 }

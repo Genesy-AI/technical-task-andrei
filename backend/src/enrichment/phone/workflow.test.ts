@@ -4,7 +4,8 @@ import path from 'path'
 import { TestWorkflowEnvironment } from '@temporalio/testing'
 import { temporalTestLogger } from '../../test/temporalTestLogger'
 import { Runtime, Worker } from '@temporalio/worker'
-import { ApplicationFailure } from '@temporalio/activity'
+import { ApplicationFailure, Context } from '@temporalio/activity'
+import { WorkflowFailedError } from '@temporalio/client'
 import type { PhoneActivities } from './activities'
 import type { FinalOutcome, LeadForEnrichment, ProviderLookupResult, ProviderName } from './domain/types'
 import { enrichPhoneWorkflow } from './workflow'
@@ -159,5 +160,67 @@ describe('enrichPhoneWorkflow', () => {
     expect(calls).toEqual([])
     expect(activities.markProgress).not.toHaveBeenCalled()
     expect(activities.saveResult).not.toHaveBeenCalled()
+  })
+
+  describe('when the run dies instead of finishing', () => {
+    /** Worker with base mocks that tests override; returns the activities to assert on. */
+    async function workerWith(overrides: Partial<PhoneActivities>) {
+      const activities: PhoneActivities = {
+        loadLead: vi.fn(async () => lead),
+        markProgress: vi.fn(async () => undefined),
+        saveResult: vi.fn(async () => undefined),
+        findPhoneWith: vi.fn(async () => ({ kind: 'none' }) as ProviderLookupResult),
+        ...overrides,
+      }
+      const taskQueue = `test-${randomUUID()}`
+      const worker = await Worker.create({
+        connection: env.nativeConnection,
+        taskQueue,
+        workflowsPath: path.join(__dirname, 'workflow.ts'),
+        activities,
+      })
+      return { activities, worker, taskQueue }
+    }
+
+    it('saves FAILED when a DB step keeps failing, so the lead is not stuck in RUNNING', async () => {
+      const { activities, worker, taskQueue } = await workerWith({
+        markProgress: vi.fn(async () => {
+          throw ApplicationFailure.nonRetryable('database is locked', 'DbError')
+        }),
+      })
+
+      const result = worker.runUntil(
+        env.client.workflow.execute(enrichPhoneWorkflow, { taskQueue, workflowId: randomUUID(), args: [7] })
+      )
+
+      await expect(result).rejects.toBeInstanceOf(WorkflowFailedError)
+      expect(activities.saveResult).toHaveBeenCalledWith(7, expect.objectContaining({ status: 'FAILED' }))
+    })
+
+    it('saves FAILED when the run is cancelled mid-provider', async () => {
+      let providerStarted: () => void = () => undefined
+      const started = new Promise<void>((resolve) => (providerStarted = resolve))
+      const { activities, worker, taskQueue } = await workerWith({
+        findPhoneWith: vi.fn(async () => {
+          providerStarted()
+          await Context.current().cancelled // hang until cancelled (worker shutdown)
+          return { kind: 'none' } as ProviderLookupResult
+        }),
+      })
+
+      const result = worker.runUntil(async () => {
+        const handle = await env.client.workflow.start(enrichPhoneWorkflow, {
+          taskQueue,
+          workflowId: randomUUID(),
+          args: [7],
+        })
+        await started
+        await handle.cancel()
+        await expect(handle.result()).rejects.toBeInstanceOf(WorkflowFailedError)
+      })
+
+      await result
+      expect(activities.saveResult).toHaveBeenCalledWith(7, expect.objectContaining({ status: 'FAILED' }))
+    })
   })
 })

@@ -3,6 +3,9 @@ import type { LeadsGetManyOutput } from '../api/types/leads/getMany'
 
 export const POLL_INTERVAL_MS = 2000
 
+/** Same cap as the backend (MAX_LEADS_PER_REQUEST). */
+export const MAX_LEADS_PER_ENRICH = 100
+
 /** Poll the leads list while any lead is waiting for or running phone enrichment. */
 export function leadsPollInterval(leads: LeadsGetManyOutput | undefined): number | false {
   const busy = leads?.some(

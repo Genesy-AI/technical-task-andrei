@@ -41,8 +41,8 @@ export function createPhoneActivities({ providers, leadRepo }: PhoneActivityDeps
     async saveResult(leadId: number, outcome: FinalOutcome): Promise<void> {
       if (outcome.status !== 'FAILED') return leadRepo.saveResult(leadId, outcome)
 
-      // Provider errors stay internal (here and in the workflow result); the lead gets a safe text.
-      log.warn('Phone enrichment failed for every provider', { leadId, error: outcome.error })
+      // Error details (provider errors, crash/cancel reason) stay internal; the lead gets a safe text.
+      log.warn('Phone enrichment failed', { leadId, error: outcome.error })
       await leadRepo.saveResult(leadId, { status: 'FAILED', error: USER_MESSAGES.lookupFailed })
     },
   }

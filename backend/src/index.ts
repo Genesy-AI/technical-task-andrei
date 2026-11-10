@@ -8,6 +8,7 @@ import { TEMPLATE_FIELDS } from './utils/templateFields'
 import { toLeadCreateData } from './utils/leadImport'
 import { runTemporalWorker, TASK_QUEUE } from './worker'
 import { startPhoneEnrichment } from './enrichment/phone/startPhoneEnrichment'
+import { parseEnrichPhoneRequest } from './enrichment/phone/parseEnrichPhoneRequest'
 import { PrismaLeadRepository } from './enrichment/phone/adapters/prismaLeadRepository'
 import { TemporalPhoneWorkflowStarter } from './enrichment/phone/adapters/temporalWorkflowStarter'
 const prisma = new PrismaClient()
@@ -330,18 +331,14 @@ app.post('/leads/verify-emails', async (req: Request, res: Response) => {
 })
 
 app.post('/leads/enrich-phone', async (req: Request, res: Response) => {
-  const { leadIds } = (req.body ?? {}) as { leadIds?: unknown }
-
-  const isLeadId = (id: unknown) =>
-    (typeof id === 'number' && Number.isInteger(id) && id > 0) ||
-    (typeof id === 'string' && /^[1-9]\d*$/.test(id))
-  if (!Array.isArray(leadIds) || leadIds.length === 0 || !leadIds.every(isLeadId)) {
-    return res.status(400).json({ error: 'leadIds must be a non-empty array of lead ids' })
+  const parsed = parseEnrichPhoneRequest(req.body)
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error })
   }
 
   try {
     const client = await getTemporalClient()
-    const result = await startPhoneEnrichment(leadIds.map(Number), {
+    const result = await startPhoneEnrichment(parsed.leadIds, {
       leads: phoneLeadRepo,
       workflows: new TemporalPhoneWorkflowStarter(client.workflow, TASK_QUEUE),
     })
