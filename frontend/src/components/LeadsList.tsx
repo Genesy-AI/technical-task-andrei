@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { api } from '../api'
 import { MessageTemplateModal } from './MessageTemplateModal'
 import { CsvImportModal } from './CsvImportModal'
+import { DEFAULT_CELL_CLASS, LEAD_COLUMNS } from './leadColumns'
 
 export const LeadsList: FC = () => {
   const [selectedLeads, setSelectedLeads] = useState<number[]>([])
@@ -71,14 +72,6 @@ export const LeadsList: FC = () => {
     if (selectedLeads.length > 0) {
       deleteLeadsMutation.mutate(selectedLeads)
     }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
   }
 
   if (leads.isLoading) {
@@ -306,48 +299,15 @@ export const LeadsList: FC = () => {
                     onChange={(e) => handleSelectAll(e.target.checked)}
                   />
                 </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
-                >
-                  Name
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
-                >
-                  Email
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
-                >
-                  Job Title
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
-                >
-                  Company
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
-                >
-                  Country
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
-                >
-                  Message
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
-                >
-                  Created
-                </th>
+                {LEAD_COLUMNS.map((column) => (
+                  <th
+                    key={column.key}
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
+                  >
+                    {column.header}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -367,34 +327,11 @@ export const LeadsList: FC = () => {
                         onChange={(e) => handleSelectLead(lead.id, e.target.checked)}
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {lead.firstName} {lead.lastName || ''}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {lead.email || '-'}{' '}
-                        {lead.emailVerified === null ? '❓' : lead.emailVerified ? '✅' : '❌'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{lead.jobTitle || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{lead.companyName || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{lead.countryCode || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 max-w-xs truncate" title={lead.message || ''}>
-                        {lead.message || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(lead.createdAt)}
-                    </td>
+                    {LEAD_COLUMNS.map((column) => (
+                      <td key={column.key} className={column.cellClassName ?? DEFAULT_CELL_CLASS}>
+                        {column.render(lead)}
+                      </td>
+                    ))}
                   </tr>
                 ))}
             </tbody>

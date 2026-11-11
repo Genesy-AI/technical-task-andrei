@@ -74,6 +74,41 @@ describe('generateMessageFromTemplate', () => {
     })
   })
 
+  describe('new lead fields', () => {
+    const leadWithNewFields: Lead = {
+      firstName: 'John',
+      phoneNumber: '+1 555 0100',
+      yearsAtCompany: 3,
+      linkedinUrl: 'https://linkedin.com/in/johndoe',
+    }
+
+    it('should replace phoneNumber, yearsAtCompany and linkedinUrl', () => {
+      const template = 'Call {phoneNumber}. {yearsAtCompany} years in. See {linkedinUrl}'
+      const result = generateMessageFromTemplate(template, leadWithNewFields)
+      expect(result).toBe('Call +1 555 0100. 3 years in. See https://linkedin.com/in/johndoe')
+    })
+
+    it('should treat yearsAtCompany 0 as a real value, not missing', () => {
+      const result = generateMessageFromTemplate('{yearsAtCompany} years', {
+        firstName: 'A',
+        yearsAtCompany: 0,
+      })
+      expect(result).toBe('0 years')
+    })
+
+    it('should throw when yearsAtCompany is null', () => {
+      expect(() =>
+        generateMessageFromTemplate('{yearsAtCompany} years', { firstName: 'A', yearsAtCompany: null })
+      ).toThrow('Missing required field: yearsAtCompany')
+    })
+
+    it('should throw when linkedinUrl is missing', () => {
+      expect(() => generateMessageFromTemplate('See {linkedinUrl}', { firstName: 'A' })).toThrow(
+        'Missing required field: linkedinUrl'
+      )
+    })
+  })
+
   describe('error handling for missing fields', () => {
     it('should throw error when field is null', () => {
       const template = 'Hello {firstName} {lastName}!'
@@ -181,6 +216,26 @@ describe('generateMessageFromTemplate', () => {
       const template = 'Name: {firstName}, Company: {companyName}'
       const result = generateMessageFromTemplate(template, longLead)
       expect(result).toBe(`Name: ${'A'.repeat(1000)}, Company: ${'B'.repeat(500)}`)
+    })
+  })
+
+  describe('values that look like template syntax', () => {
+    it('should insert values with $ patterns as plain text', () => {
+      const result = generateMessageFromTemplate('Hi {firstName}', { firstName: "Pay $& now $1 $$ $` $'" })
+      expect(result).toBe("Hi Pay $& now $1 $$ $` $'")
+    })
+
+    it('should not expand placeholders found inside a value', () => {
+      const result = generateMessageFromTemplate('{firstName} / {email}', {
+        firstName: '{email}',
+        email: 'x@y.z',
+      })
+      expect(result).toBe('{email} / x@y.z')
+    })
+
+    it('should not fail on a placeholder inside a value that the lead lacks', () => {
+      const result = generateMessageFromTemplate('Hi {firstName}', { firstName: '{lastName}' })
+      expect(result).toBe('Hi {lastName}')
     })
   })
 

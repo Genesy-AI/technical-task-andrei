@@ -6,6 +6,9 @@ export interface LeadsBulkImportInput {
     jobTitle?: string
     countryCode?: string
     companyName?: string
+    phoneNumber?: string
+    yearsAtCompany?: number
+    linkedinUrl?: string
   }[]
 }
 
@@ -17,5 +20,12 @@ export interface LeadsBulkImportOutput {
   errors: Array<{
     lead: any
     error: string
+  }>
+  /** Optional values the server did not store because they were not valid. */
+  warnings?: Array<{
+    index: number
+    email: string
+    field: string
+    message: string
   }>
 }

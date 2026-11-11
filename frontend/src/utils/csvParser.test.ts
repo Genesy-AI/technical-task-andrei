@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCsv, isValidEmail } from './csvParser'
+import { parseCsv, isValidEmail, parseYearsAtCompany, normalizeLinkedinUrl, headerToField } from './csvParser'
 
 describe('isValidEmail', () => {
   it('should return true for valid email addresses', () => {
@@ -222,5 +222,159 @@ Jane,Johnson,jane@example.com`
     expect(result[0].lastName).toBe('Doe')
     expect(result[0].email).toBe('john@example.com')
     expect(result[0].isValid).toBe(true)
+  })
+})
+
+describe('parseYearsAtCompany', () => {
+  it('should parse whole numbers from 0 to 80', () => {
+    expect(parseYearsAtCompany('0')).toBe(0)
+    expect(parseYearsAtCompany('5')).toBe(5)
+    expect(parseYearsAtCompany('80')).toBe(80)
+  })
+
+  it('should return null for anything else', () => {
+    expect(parseYearsAtCompany('abc')).toBeNull()
+    expect(parseYearsAtCompany('-1')).toBeNull()
+    expect(parseYearsAtCompany('2.5')).toBeNull()
+    expect(parseYearsAtCompany('81')).toBeNull()
+    expect(parseYearsAtCompany('5 years')).toBeNull()
+  })
+})
+
+describe('normalizeLinkedinUrl', () => {
+  it('should accept profile and company URLs', () => {
+    expect(normalizeLinkedinUrl('https://www.linkedin.com/in/johndoe')).toBe(
+      'https://www.linkedin.com/in/johndoe'
+    )
+    expect(normalizeLinkedinUrl('https://linkedin.com/company/acme')).toBe(
+      'https://linkedin.com/company/acme'
+    )
+  })
+
+  it('should add https when the protocol is missing', () => {
+    expect(normalizeLinkedinUrl('linkedin.com/in/johndoe')).toBe('https://linkedin.com/in/johndoe')
+    expect(normalizeLinkedinUrl('www.linkedin.com/in/johndoe')).toBe('https://www.linkedin.com/in/johndoe')
+  })
+
+  it('should upgrade http to https', () => {
+    expect(normalizeLinkedinUrl('http://linkedin.com/in/johndoe')).toBe('https://linkedin.com/in/johndoe')
+  })
+
+  it('should return null for non-LinkedIn or non-profile URLs', () => {
+    expect(normalizeLinkedinUrl('https://evil.com/in/johndoe')).toBeNull()
+    expect(normalizeLinkedinUrl('https://linkedin.com.evil.com/in/johndoe')).toBeNull()
+    expect(normalizeLinkedinUrl('https://linkedin.com/feed')).toBeNull()
+    expect(normalizeLinkedinUrl('https://linkedin.com/in/')).toBeNull()
+    expect(normalizeLinkedinUrl('javascript:alert(1)')).toBeNull()
+    expect(normalizeLinkedinUrl('not a url')).toBeNull()
+  })
+})
+
+describe('parseCsv - new lead fields', () => {
+  const header = 'firstName,lastName,email'
+
+  it('should parse phoneNumber, yearsAtCompany and linkedinUrl', () => {
+    const csv = `${header},phoneNumber,yearsAtCompany,linkedinUrl
+John,Doe,john@example.com,(760)551-9973x6454,3,linkedin.com/in/johndoe`
+
+    const [lead] = parseCsv(csv)
+
+    expect(lead.isValid).toBe(true)
+    expect(lead.phoneNumber).toBe('(760)551-9973x6454')
+    expect(lead.yearsAtCompany).toBe(3)
+    expect(lead.linkedinUrl).toBe('https://linkedin.com/in/johndoe')
+  })
+
+  it('should map alias headers to the canonical fields', () => {
+    const csv = `${header},phone,yearsInRole,LinkedIn Profile
+John,Doe,john@example.com,555-0100,7,https://linkedin.com/in/johndoe`
+
+    const [lead] = parseCsv(csv)
+
+    expect(lead.phoneNumber).toBe('555-0100')
+    expect(lead.yearsAtCompany).toBe(7)
+    expect(lead.linkedinUrl).toBe('https://linkedin.com/in/johndoe')
+  })
+
+  it('should accept linkedin_url and years_at_company style headers', () => {
+    const csv = `${header},linkedin_url,years_at_company
+John,Doe,john@example.com,linkedin.com/in/johndoe,0`
+
+    const [lead] = parseCsv(csv)
+
+    expect(lead.linkedinUrl).toBe('https://linkedin.com/in/johndoe')
+    expect(lead.yearsAtCompany).toBe(0)
+  })
+
+  it('should parse the header used by the sample CSVs in docs/', () => {
+    const csv = `firstName,lastName,email,jobTitle,countryCode,companyName,yearsInRole,phoneNumber
+Chad,Smith,hancockjames@gmail.com,Child psychotherapist,TV,Global Tech Solutions,2,+1-280-754-0462x2154`
+
+    const [lead] = parseCsv(csv)
+
+    expect(lead.isValid).toBe(true)
+    expect(lead.yearsAtCompany).toBe(2)
+    expect(lead.phoneNumber).toBe('+1-280-754-0462x2154')
+  })
+
+  it('should mark the row invalid when years is not a whole number from 0 to 80', () => {
+    for (const years of ['abc', '-1', '2.5', '200']) {
+      const [lead] = parseCsv(`${header},yearsAtCompany\nJohn,Doe,john@example.com,${years}`)
+      expect(lead.isValid).toBe(false)
+      expect(lead.errors).toContain('Invalid years at company. Use a whole number from 0 to 80')
+    }
+  })
+
+  it('should mark the row invalid when the LinkedIn URL is not a linkedin.com profile', () => {
+    const [lead] = parseCsv(`${header},linkedinUrl\nJohn,Doe,john@example.com,https://evil.com/in/john`)
+
+    expect(lead.isValid).toBe(false)
+    expect(lead.errors).toContain('Invalid LinkedIn URL. Use a linkedin.com/in/ or /company/ link')
+  })
+
+  it('should mark the row invalid when the phone is not a phone number', () => {
+    for (const phone of ['call me', '<b>1</b>', '555-01', '1234567890123456', '1'.repeat(40)]) {
+      const [lead] = parseCsv(`${header},phoneNumber\nJohn,Doe,john@example.com,${phone}`)
+      expect(lead.isValid).toBe(false)
+      expect(lead.errors).toContain(
+        'Invalid phone number. Use digits with optional +, spaces, ( ) - . and an x extension'
+      )
+    }
+  })
+
+  it('should leave the new fields undefined when cells are empty', () => {
+    const [lead] = parseCsv(`${header},phoneNumber,yearsAtCompany,linkedinUrl\nJohn,Doe,john@example.com,,,`)
+
+    expect(lead.isValid).toBe(true)
+    expect(lead.phoneNumber).toBeUndefined()
+    expect(lead.yearsAtCompany).toBeUndefined()
+    expect(lead.linkedinUrl).toBeUndefined()
+  })
+})
+
+describe('headerToField', () => {
+  it('maps known headers and aliases, ignoring case and non-letters', () => {
+    expect(headerToField('First Name')).toBe('firstName')
+    expect(headerToField('years_in_role')).toBe('yearsAtCompany')
+    expect(headerToField('LinkedIn Profile')).toBe('linkedinUrl')
+  })
+
+  it('returns undefined for unknown headers', () => {
+    expect(headerToField('Mobile')).toBeUndefined()
+  })
+
+  it('does not match built-in object properties', () => {
+    for (const header of ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf']) {
+      expect(headerToField(header)).toBeUndefined()
+    }
+  })
+})
+
+describe('parseCsv - unusual headers', () => {
+  it('ignores a "constructor" column and still parses the row', () => {
+    const [lead] = parseCsv('firstName,lastName,email,constructor\nJohn,Doe,john@example.com,boom')
+
+    expect(lead.isValid).toBe(true)
+    expect(lead.firstName).toBe('John')
   })
 })

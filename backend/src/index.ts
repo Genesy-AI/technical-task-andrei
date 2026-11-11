@@ -3,6 +3,8 @@ import express, { Request, Response } from 'express'
 import { Connection, Client } from '@temporalio/client'
 import { verifyEmailWorkflow } from './workflows'
 import { generateMessageFromTemplate } from './utils/messageGenerator'
+import { TEMPLATE_FIELDS } from './utils/templateFields'
+import { parseImportedLead, type ImportWarning } from './utils/leadImport'
 import { runTemporalWorker } from './worker'
 const prisma = new PrismaClient()
 const app = express()
@@ -36,6 +38,10 @@ app.post('/leads', async (req: Request, res: Response) => {
     },
   })
   res.json(lead)
+})
+
+app.get('/template-fields', (_req: Request, res: Response) => {
+  res.json(TEMPLATE_FIELDS)
 })
 
 app.get('/leads/:id', async (req: Request, res: Response) => {
@@ -218,20 +224,17 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
 
     let importedCount = 0
     const errors: Array<{ lead: any; error: string }> = []
+    // Optional values that were dropped, so the caller knows what was not stored.
+    // index is the lead's position in the request's leads array.
+    const warnings: Array<{ index: number; email: string } & ImportWarning> = []
 
     for (const lead of uniqueLeads) {
       try {
-        await prisma.lead.create({
-          data: {
-            firstName: lead.firstName.trim(),
-            lastName: lead.lastName.trim(),
-            email: lead.email.trim(),
-            jobTitle: lead.jobTitle ? lead.jobTitle.trim() : null,
-            countryCode: lead.countryCode ? lead.countryCode.trim() : null,
-            companyName: lead.companyName ? lead.companyName.trim() : null,
-          },
-        })
+        const { data, warnings: leadWarnings } = parseImportedLead(lead)
+        await prisma.lead.create({ data })
         importedCount++
+        const index = leads.indexOf(lead)
+        warnings.push(...leadWarnings.map((w) => ({ index, email: data.email, ...w })))
       } catch (error) {
         errors.push({
           lead: lead,
@@ -246,6 +249,7 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
       duplicatesSkipped: validLeads.length - uniqueLeads.length,
       invalidLeads: leads.length - validLeads.length,
       errors,
+      warnings,
     })
   } catch (error) {
     console.error('Error importing leads:', error)

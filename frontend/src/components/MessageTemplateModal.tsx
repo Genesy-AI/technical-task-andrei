@@ -1,8 +1,10 @@
 import { FC, useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { api } from '../api'
+import { insertAtCursor } from '../utils/insertAtCursor'
+import { InsertFieldCombobox } from './InsertFieldCombobox'
 
 interface MessageTemplateModalProps {
   isOpen: boolean
@@ -25,6 +27,13 @@ export const MessageTemplateModal: FC<MessageTemplateModalProps> = ({
   } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const queryClient = useQueryClient()
+
+  const templateFields = useQuery({
+    queryKey: ['leads', 'templateFields'],
+    queryFn: () => api.leads.templateFields(),
+    staleTime: Infinity,
+    enabled: isOpen,
+  })
 
   const generateMessagesMutation = useMutation({
     mutationFn: async (data: { leadIds: number[]; template: string }) => api.leads.generateMessages(data),
@@ -106,21 +115,21 @@ export const MessageTemplateModal: FC<MessageTemplateModalProps> = ({
     }
   }, [isOpen, handleClose])
 
-  const availableFields = ['firstName', 'lastName', 'email', 'jobTitle', 'companyName', 'countryCode']
+  const insertField = (key: string) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    const { text, cursor } = insertAtCursor(
+      template,
+      textarea.selectionStart,
+      textarea.selectionEnd,
+      `{${key}}`
+    )
+    setTemplate(text)
 
-  const insertField = (field: string) => {
-    if (textareaRef.current) {
-      const textarea = textareaRef.current
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const newTemplate = template.substring(0, start) + `{${field}}` + template.substring(end)
-      setTemplate(newTemplate)
-
-      setTimeout(() => {
-        textarea.focus()
-        textarea.setSelectionRange(start + field.length + 2, start + field.length + 2)
-      }, 0)
-    }
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(cursor, cursor)
+    }, 0)
   }
 
   if (!isOpen) return null
@@ -156,19 +165,12 @@ export const MessageTemplateModal: FC<MessageTemplateModalProps> = ({
                 Message Template
               </label>
               <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-sm text-gray-600">Insert field:</span>
-                  {availableFields.map((field) => (
-                    <button
-                      key={field}
-                      type="button"
-                      onClick={() => insertField(field)}
-                      className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors"
-                    >
-                      {`{${field}}`}
-                    </button>
-                  ))}
-                </div>
+                <InsertFieldCombobox
+                  fields={templateFields.data ?? []}
+                  onSelect={insertField}
+                  isLoading={templateFields.isLoading}
+                  isError={templateFields.isError}
+                />
                 <textarea
                   ref={textareaRef}
                   id="message-template"
@@ -180,9 +182,8 @@ export const MessageTemplateModal: FC<MessageTemplateModalProps> = ({
                 />
               </div>
               <p className="mt-2 text-sm text-gray-500">
-                Use curly braces around field names (e.g., {`{firstName}`}) to insert dynamic values. If a
-                field is missing for a lead, an error will be shown and no message will be generated for that
-                lead.
+                Pick a field above, or type its name in curly braces (e.g., {`{firstName}`}). If a field is
+                missing for a lead, an error will be shown and no message will be generated for that lead.
               </p>
             </div>
 
