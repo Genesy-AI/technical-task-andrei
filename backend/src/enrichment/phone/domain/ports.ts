@@ -1,12 +1,15 @@
 import type { EnrichmentStatus, LeadForEnrichment, ProviderName } from './types'
 
+/** A phone as a provider returned it, before it is cleaned. */
+export type ProviderPhone = { number: string; countryCode?: string | null }
+
 /** One phone data provider. Each provider gets its own adapter. */
 export interface PhoneProviderPort {
   readonly name: ProviderName
   /** False when the lead lacks the input this provider needs. The provider is then skipped. */
   canHandle(lead: LeadForEnrichment): boolean
-  /** Phone number, or null when the provider has no data. Throws on transport/API errors. */
-  findPhone(lead: LeadForEnrichment, options?: { signal?: AbortSignal }): Promise<string | null>
+  /** Raw phone, or null when the provider has no data. Throws on transport/API errors. */
+  findPhone(lead: LeadForEnrichment, options?: { signal?: AbortSignal }): Promise<ProviderPhone | null>
 }
 
 export type EnrichmentResultUpdate = {
@@ -23,12 +26,18 @@ export interface LeadRepositoryPort {
   saveResult(leadId: number, result: EnrichmentResultUpdate): Promise<void>
 }
 
-export type LeadStartInfo = { id: number; phoneNumber: string | null; status: EnrichmentStatus | null }
+export type LeadStartInfo = {
+  id: number
+  phoneNumber: string | null
+  status: EnrichmentStatus | null
+  /** When enrichment was last requested for this lead. */
+  requestedAt: Date | null
+}
 
 /** Storage needed by the API when starting enrichment. */
 export interface EnrichmentStartRepositoryPort {
   getStartInfo(leadIds: number[]): Promise<LeadStartInfo[]>
-  markPending(leadId: number): Promise<void>
+  markPending(leadId: number, requestedAt: Date): Promise<void>
   saveResult(leadId: number, result: EnrichmentResultUpdate): Promise<void>
 }
 

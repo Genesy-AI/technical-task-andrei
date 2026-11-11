@@ -2,7 +2,7 @@ export type LeadsEnrichPhoneInput = {
   leadIds: number[]
 }
 
-export type EnrichPhoneSkipReason = 'not_found' | 'already_has_phone' | 'already_running'
+export type EnrichPhoneSkipReason = 'not_found' | 'already_has_phone' | 'already_running' | 'cooldown'
 
 /** 202 response: workflows run in the background, progress is on each lead. */
 export type LeadsEnrichPhoneOutput = {

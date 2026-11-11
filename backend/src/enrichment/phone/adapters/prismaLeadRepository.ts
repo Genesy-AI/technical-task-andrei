@@ -18,7 +18,7 @@ export class PrismaLeadRepository implements LeadRepositoryPort, EnrichmentStart
   async getForEnrichment(leadId: number): Promise<LeadForEnrichment | null> {
     return this.prisma.lead.findUnique({
       where: { id: leadId },
-      select: { id: true, firstName: true, lastName: true, email: true, jobTitle: true },
+      select: { id: true, firstName: true, lastName: true, email: true, jobTitle: true, countryCode: true },
     })
   }
 
@@ -49,19 +49,25 @@ export class PrismaLeadRepository implements LeadRepositoryPort, EnrichmentStart
   async getStartInfo(leadIds: number[]): Promise<LeadStartInfo[]> {
     const rows = await this.prisma.lead.findMany({
       where: { id: { in: leadIds } },
-      select: { id: true, phoneNumber: true, phoneEnrichmentStatus: true },
+      select: { id: true, phoneNumber: true, phoneEnrichmentStatus: true, phoneEnrichmentRequestedAt: true },
     })
     return rows.map((row) => ({
       id: row.id,
       phoneNumber: row.phoneNumber,
       status: row.phoneEnrichmentStatus as EnrichmentStatus | null,
+      requestedAt: row.phoneEnrichmentRequestedAt,
     }))
   }
 
-  async markPending(leadId: number): Promise<void> {
+  async markPending(leadId: number, requestedAt: Date): Promise<void> {
     await this.prisma.lead.updateMany({
       where: { id: leadId },
-      data: { phoneEnrichmentStatus: 'PENDING', phoneEnrichmentProvider: null, phoneEnrichmentError: null },
+      data: {
+        phoneEnrichmentStatus: 'PENDING',
+        phoneEnrichmentProvider: null,
+        phoneEnrichmentError: null,
+        phoneEnrichmentRequestedAt: requestedAt,
+      },
     })
   }
 }

@@ -16,6 +16,7 @@ const lead: LeadForEnrichment = {
   lastName: 'Lovelace',
   email: 'ada@acme.com',
   jobTitle: 'CTO',
+  countryCode: null,
 }
 
 type ProviderBehaviour = (attempt: number) => ProviderLookupResult | Error

@@ -2,7 +2,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { WorkflowClient } from '@temporalio/client'
 import { TestWorkflowEnvironment } from '@temporalio/testing'
 import { installTemporalTestRuntime } from '../../../test/temporalTestLogger'
-import { TemporalPhoneWorkflowStarter, phoneWorkflowId } from './temporalWorkflowStarter'
+import {
+  PHONE_WORKFLOW_TIMEOUT,
+  TemporalPhoneWorkflowStarter,
+  phoneWorkflowId,
+} from './temporalWorkflowStarter'
 import { enrichPhoneWorkflow } from '../workflow'
 
 describe('phoneWorkflowId', () => {
@@ -27,6 +31,7 @@ describe('TemporalPhoneWorkflowStarter', () => {
       args: [42],
       workflowIdConflictPolicy: 'USE_EXISTING', // running -> attach, don't start a second one
       workflowIdReusePolicy: 'ALLOW_DUPLICATE', // finished -> may run again
+      workflowExecutionTimeout: PHONE_WORKFLOW_TIMEOUT, // never open forever
     })
   })
 
@@ -65,6 +70,17 @@ describe('TemporalPhoneWorkflowStarter', () => {
 
       expect(second.runId).not.toBe(first.runId)
       expect(second.status.name).toBe('RUNNING')
+    })
+
+    it('closes a run that no worker picks up once the execution timeout passes', async () => {
+      const starter = new TemporalPhoneWorkflowStarter(env.client.workflow, 'no-worker', '2 seconds')
+      await starter.start(3001)
+
+      await env.sleep('3 seconds')
+
+      await expect(starter.isRunning(3001)).resolves.toBe(false)
+      const { status } = await env.client.workflow.getHandle(phoneWorkflowId(3001)).describe()
+      expect(status.name).toBe('TIMED_OUT')
     })
 
     describe('isRunning', () => {

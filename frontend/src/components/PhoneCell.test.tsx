@@ -22,6 +22,7 @@ const lead = (overrides: Partial<Lead> = {}): Lead => ({
   phoneEnrichmentStatus: null,
   phoneEnrichmentProvider: null,
   phoneEnrichmentError: null,
+  phoneEnrichmentRequestedAt: new Date().toISOString(), // recent: in-progress states are live
   ...overrides,
 })
 
@@ -69,6 +70,20 @@ describe('PhoneCell', () => {
     render(<PhoneCell lead={lead({ phoneEnrichmentStatus: 'RUNNING' })} />)
     expect(screen.getByRole('status')).toHaveTextContent('Searching…')
   })
+
+  it.each(['PENDING', 'RUNNING'] as const)(
+    'shows "Timed out" when a %s lookup is past the time limit',
+    (status) => {
+      const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
+      render(
+        <PhoneCell lead={lead({ phoneEnrichmentStatus: status, phoneEnrichmentRequestedAt: longAgo })} />
+      )
+
+      const cell = screen.getByText('Timed out')
+      expect(cell).toHaveAttribute('title', expect.stringMatching(/run Enrich Phone again/i))
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    }
+  )
 
   it('shows "No data found" when no provider had a phone', () => {
     render(<PhoneCell lead={lead({ phoneEnrichmentStatus: 'NO_DATA' })} />)

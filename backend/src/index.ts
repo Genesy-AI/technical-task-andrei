@@ -11,6 +11,7 @@ import { startPhoneEnrichment } from './enrichment/phone/startPhoneEnrichment'
 import { parseEnrichPhoneRequest } from './enrichment/phone/parseEnrichPhoneRequest'
 import { PrismaLeadRepository } from './enrichment/phone/adapters/prismaLeadRepository'
 import { TemporalPhoneWorkflowStarter } from './enrichment/phone/adapters/temporalWorkflowStarter'
+import { enrichPhoneRateLimit } from './enrichment/phone/rateLimit'
 const prisma = new PrismaClient()
 const app = express()
 const phoneLeadRepo = new PrismaLeadRepository(prisma)
@@ -330,7 +331,7 @@ app.post('/leads/verify-emails', async (req: Request, res: Response) => {
   }
 })
 
-app.post('/leads/enrich-phone', async (req: Request, res: Response) => {
+app.post('/leads/enrich-phone', enrichPhoneRateLimit, async (req: Request, res: Response) => {
   const parsed = parseEnrichPhoneRequest(req.body)
   if (!parsed.ok) {
     return res.status(400).json({ error: parsed.error })

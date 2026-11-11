@@ -34,6 +34,8 @@
     "@temporalio/client": "^1.13.0",
     "@temporalio/worker": "^1.13.0",
     "@temporalio/workflow": "^1.13.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.7.4",
+    "libphonenumber-js": "^1.13.16"
   }
 }

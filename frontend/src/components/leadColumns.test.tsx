@@ -21,6 +21,7 @@ const baseLead: Lead = {
   phoneEnrichmentStatus: null,
   phoneEnrichmentProvider: null,
   phoneEnrichmentError: null,
+  phoneEnrichmentRequestedAt: new Date().toISOString(), // recent: in-progress states are live
 }
 
 const renderRow = (lead: Lead) => {

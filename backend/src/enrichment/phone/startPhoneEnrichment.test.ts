@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { startPhoneEnrichment } from './startPhoneEnrichment'
+import { ENRICHMENT_COOLDOWN_MS, startPhoneEnrichment } from './startPhoneEnrichment'
 import type { EnrichmentStartRepositoryPort, LeadStartInfo, PhoneWorkflowStarterPort } from './domain/ports'
 
 function setup(leadsInDb: LeadStartInfo[]) {
@@ -21,7 +21,7 @@ function setup(leadsInDb: LeadStartInfo[]) {
   return { leads, workflows, calls, log, deps: { leads, workflows, log } }
 }
 
-const fresh = (id: number): LeadStartInfo => ({ id, phoneNumber: null, status: null })
+const fresh = (id: number): LeadStartInfo => ({ id, phoneNumber: null, status: null, requestedAt: null })
 
 describe('startPhoneEnrichment', () => {
   it('marks each lead PENDING and then starts its workflow', async () => {
@@ -51,7 +51,7 @@ describe('startPhoneEnrichment', () => {
   })
 
   it('skips leads that already have a phone', async () => {
-    const { deps, workflows } = setup([{ id: 1, phoneNumber: '+1 555', status: null }])
+    const { deps, workflows } = setup([{ id: 1, phoneNumber: '+1 555', status: null, requestedAt: null }])
 
     const result = await startPhoneEnrichment([1], deps)
 
@@ -60,7 +60,7 @@ describe('startPhoneEnrichment', () => {
   })
 
   it('treats a blank phone as no phone', async () => {
-    const { deps } = setup([{ id: 1, phoneNumber: '  ', status: null }])
+    const { deps } = setup([{ id: 1, phoneNumber: '  ', status: null, requestedAt: null }])
 
     const result = await startPhoneEnrichment([1], deps)
 
@@ -70,7 +70,7 @@ describe('startPhoneEnrichment', () => {
   it.each(['PENDING', 'RUNNING'] as const)(
     'skips leads already %s (run still open in Temporal) without touching their status',
     async (status) => {
-      const { deps, leads, workflows } = setup([{ id: 1, phoneNumber: null, status }])
+      const { deps, leads, workflows } = setup([{ id: 1, phoneNumber: null, status, requestedAt: null }])
 
       const result = await startPhoneEnrichment([1], deps)
 
@@ -83,7 +83,7 @@ describe('startPhoneEnrichment', () => {
   it.each(['PENDING', 'RUNNING'] as const)(
     'restarts leads stuck in %s whose run is gone (terminated, crashed)',
     async (status) => {
-      const { deps, workflows, calls } = setup([{ id: 1, phoneNumber: null, status }])
+      const { deps, workflows, calls } = setup([{ id: 1, phoneNumber: null, status, requestedAt: null }])
       vi.mocked(workflows.isRunning).mockResolvedValue(false)
 
       const result = await startPhoneEnrichment([1], deps)
@@ -103,7 +103,9 @@ describe('startPhoneEnrichment', () => {
   })
 
   it('reports an error and leaves the status alone when Temporal cannot be asked', async () => {
-    const { deps, workflows, leads, log } = setup([{ id: 1, phoneNumber: null, status: 'RUNNING' }])
+    const { deps, workflows, leads, log } = setup([
+      { id: 1, phoneNumber: null, status: 'RUNNING', requestedAt: null },
+    ])
     const internal = new Error('14 UNAVAILABLE')
     vi.mocked(workflows.isRunning).mockRejectedValue(internal)
 
@@ -115,8 +117,52 @@ describe('startPhoneEnrichment', () => {
     expect(log).toHaveBeenCalledWith('Failed to check phone enrichment run', { leadId: 1, error: internal })
   })
 
+  describe('cooldown', () => {
+    const now = new Date('2026-11-11T12:00:00Z')
+    const ago = (ms: number) => new Date(now.getTime() - ms)
+
+    it.each(['NO_DATA', 'FAILED'] as const)(
+      'skips a lead that ended %s inside the cooldown',
+      async (status) => {
+        const { deps, workflows } = setup([
+          { id: 1, phoneNumber: null, status, requestedAt: ago(ENRICHMENT_COOLDOWN_MS[status]! - 1000) },
+        ])
+
+        const result = await startPhoneEnrichment([1], { ...deps, now: () => now })
+
+        expect(result.skipped).toEqual([{ leadId: 1, reason: 'cooldown' }])
+        expect(workflows.start).not.toHaveBeenCalled()
+      }
+    )
+
+    it.each(['NO_DATA', 'FAILED'] as const)(
+      're-runs a lead that ended %s once the cooldown is over',
+      async (status) => {
+        const { deps } = setup([
+          { id: 1, phoneNumber: null, status, requestedAt: ago(ENRICHMENT_COOLDOWN_MS[status]! + 1000) },
+        ])
+
+        const result = await startPhoneEnrichment([1], { ...deps, now: () => now })
+
+        expect(result.started).toEqual([1])
+      }
+    )
+
+    it('waits much longer after NO_DATA than after FAILED', () => {
+      expect(ENRICHMENT_COOLDOWN_MS.NO_DATA!).toBeGreaterThan(ENRICHMENT_COOLDOWN_MS.FAILED!)
+    })
+
+    it('stores the request time when marking a lead PENDING', async () => {
+      const { deps, leads } = setup([fresh(1)])
+
+      await startPhoneEnrichment([1], { ...deps, now: () => now })
+
+      expect(leads.markPending).toHaveBeenCalledWith(1, now)
+    })
+  })
+
   it.each(['NO_DATA', 'FAILED'] as const)('re-runs leads that finished with %s', async (status) => {
-    const { deps } = setup([{ id: 1, phoneNumber: null, status }])
+    const { deps } = setup([{ id: 1, phoneNumber: null, status, requestedAt: null }])
 
     const result = await startPhoneEnrichment([1], deps)
 

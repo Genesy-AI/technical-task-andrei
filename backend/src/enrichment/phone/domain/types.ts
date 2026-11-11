@@ -13,6 +13,8 @@ export type LeadForEnrichment = {
   lastName: string
   email: string
   jobTitle: string | null
+  /** Used to turn a bare provider number into E.164. */
+  countryCode: string | null
 }
 
 /** What happened when we asked one provider. */

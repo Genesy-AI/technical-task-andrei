@@ -22,4 +22,6 @@ export type LeadsGetManyOutput = {
   phoneEnrichmentStatus: PhoneEnrichmentStatus | null
   phoneEnrichmentProvider: PhoneProvider | null
   phoneEnrichmentError: string | null
+  /** ISO date of the last enrichment request. */
+  phoneEnrichmentRequestedAt: string | null
 }[]

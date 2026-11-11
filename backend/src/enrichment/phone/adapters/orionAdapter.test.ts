@@ -9,6 +9,7 @@ const lead: LeadForEnrichment = {
   lastName: 'Lovelace',
   email: 'ada@acme.com',
   jobTitle: 'CTO',
+  countryCode: null,
 }
 const baseUrl = 'https://api.test/orionConnect'
 
@@ -59,7 +60,7 @@ describe('OrionAdapter', () => {
     it('returns the phone when found', async () => {
       const { adapter } = adapterWith(fixtureResponse('orion', 'found'))
 
-      await expect(adapter.findPhone(lead)).resolves.toBe('8221471051')
+      await expect(adapter.findPhone(lead)).resolves.toEqual({ number: '8221471051' })
     })
 
     it('returns null when phone is null', async () => {

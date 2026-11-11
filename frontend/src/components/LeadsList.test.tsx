@@ -43,6 +43,7 @@ const lead = (id: number, overrides: Partial<Lead> = {}): Lead => ({
   phoneEnrichmentStatus: null,
   phoneEnrichmentProvider: null,
   phoneEnrichmentError: null,
+  phoneEnrichmentRequestedAt: null,
   ...overrides,
 })
 

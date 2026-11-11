@@ -42,6 +42,7 @@ describe('PrismaLeadRepository', () => {
         lastName: 'Lovelace',
         email: 'ada@acme.com',
         jobTitle: 'CTO',
+        countryCode: lead.countryCode,
       })
     })
 
@@ -131,14 +132,14 @@ describe('PrismaLeadRepository', () => {
       const info = await repo.getStartInfo([a.id, b.id, 999_999])
 
       expect(info.sort((x, y) => x.id - y.id)).toEqual([
-        { id: a.id, phoneNumber: '+1 555', status: 'FOUND' },
-        { id: b.id, phoneNumber: null, status: null },
+        { id: a.id, phoneNumber: '+1 555', status: 'FOUND', requestedAt: null },
+        { id: b.id, phoneNumber: null, status: null, requestedAt: null },
       ])
     })
   })
 
   describe('markPending', () => {
-    it('sets status PENDING and clears provider and error, keeping the phone', async () => {
+    it('sets status PENDING and the request time, clears provider and error, keeps the phone', async () => {
       const lead = await createLead({
         phoneNumber: '+1 555',
         phoneEnrichmentStatus: 'FAILED',
@@ -146,7 +147,8 @@ describe('PrismaLeadRepository', () => {
         phoneEnrichmentError: 'Phone lookup failed. Please try again later.',
       })
 
-      await repo.markPending(lead.id)
+      const requestedAt = new Date('2026-11-11T12:00:00Z')
+      await repo.markPending(lead.id, requestedAt)
 
       const row = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id } })
       expect(row).toMatchObject({
@@ -154,6 +156,7 @@ describe('PrismaLeadRepository', () => {
         phoneEnrichmentStatus: 'PENDING',
         phoneEnrichmentProvider: null,
         phoneEnrichmentError: null,
+        phoneEnrichmentRequestedAt: requestedAt,
       })
     })
   })

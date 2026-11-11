@@ -9,6 +9,7 @@ const lead: LeadForEnrichment = {
   lastName: 'Doe',
   email: 'john.doe@example.com',
   jobTitle: 'CTO',
+  countryCode: null,
 }
 const baseUrl = 'https://api.test/numbusLookup'
 
@@ -61,28 +62,28 @@ describe('NimbusAdapter', () => {
       expect(fetchFn.mock.calls[0][1]?.signal).toBe(signal)
     })
 
-    it('returns "<countryCode> <number>" from the real API shape (phoneNmbr)', async () => {
+    it('returns the number and its country from the real API shape (phoneNmbr)', async () => {
       const { adapter } = adapterWith(fixtureResponse('nimbus', 'found'))
 
-      await expect(adapter.findPhone(lead)).resolves.toBe('ES 4088282927')
+      await expect(adapter.findPhone(lead)).resolves.toEqual({ number: '4088282927', countryCode: 'ES' })
     })
 
     it('also reads the documented "number" field', async () => {
       const { adapter } = adapterWith(makeResponse(200, { number: 612345678, countryCode: 'es' }))
 
-      await expect(adapter.findPhone(lead)).resolves.toBe('ES 612345678')
+      await expect(adapter.findPhone(lead)).resolves.toEqual({ number: '612345678', countryCode: 'ES' })
     })
 
     it('accepts the number as a digit string', async () => {
       const { adapter } = adapterWith(makeResponse(200, { phoneNmbr: '612345678', countryCode: 'ES' }))
 
-      await expect(adapter.findPhone(lead)).resolves.toBe('ES 612345678')
+      await expect(adapter.findPhone(lead)).resolves.toEqual({ number: '612345678', countryCode: 'ES' })
     })
 
-    it('returns just the digits when countryCode is missing', async () => {
+    it('returns no country when countryCode is missing', async () => {
       const { adapter } = adapterWith(makeResponse(200, { phoneNmbr: 612345678 }))
 
-      await expect(adapter.findPhone(lead)).resolves.toBe('612345678')
+      await expect(adapter.findPhone(lead)).resolves.toEqual({ number: '612345678', countryCode: null })
     })
 
     it.each([{}, { phoneNmbr: null, countryCode: 'ES' }, { phoneNmbr: '', countryCode: 'ES' }])(

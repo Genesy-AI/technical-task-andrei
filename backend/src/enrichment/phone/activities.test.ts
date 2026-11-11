@@ -12,6 +12,7 @@ const lead: LeadForEnrichment = {
   lastName: 'Lovelace',
   email: 'ada@acme.com',
   jobTitle: 'CTO',
+  countryCode: null,
 }
 
 function fakeProvider(name: ProviderName, overrides: Partial<PhoneProviderPort> = {}): PhoneProviderPort {
@@ -70,7 +71,7 @@ describe('phone activities', () => {
 
   describe('findPhoneWith', () => {
     it('returns found with the phone', async () => {
-      const orion = fakeProvider('ORION', { findPhone: vi.fn().mockResolvedValue('8221471051') })
+      const orion = fakeProvider('ORION', { findPhone: vi.fn().mockResolvedValue({ number: '8221471051' }) })
       const { activities, run } = setup([orion])
 
       await expect(run(activities.findPhoneWith, 'ORION', lead)).resolves.toEqual({
@@ -95,7 +96,7 @@ describe('phone activities', () => {
 
     it('uses the provider with the given name', async () => {
       const orion = fakeProvider('ORION')
-      const astra = fakeProvider('ASTRA', { findPhone: vi.fn().mockResolvedValue('8391612328') })
+      const astra = fakeProvider('ASTRA', { findPhone: vi.fn().mockResolvedValue({ number: '8391612328' }) })
       const { activities, run } = setup([orion, astra])
 
       await expect(run(activities.findPhoneWith, 'ASTRA', lead)).resolves.toEqual({
@@ -104,6 +105,33 @@ describe('phone activities', () => {
       })
       expect(orion.findPhone).not.toHaveBeenCalled()
     })
+
+    it("stores E.164 using the provider's or the lead's country", async () => {
+      const nimbus = fakeProvider('NIMBUS', {
+        findPhone: vi.fn().mockResolvedValue({ number: '612345678', countryCode: 'ES' }),
+      })
+      const astra = fakeProvider('ASTRA', { findPhone: vi.fn().mockResolvedValue({ number: '8391612328' }) })
+      const { activities, run } = setup([nimbus, astra])
+
+      await expect(run(activities.findPhoneWith, 'NIMBUS', lead)).resolves.toEqual({
+        kind: 'found',
+        phone: '+34612345678',
+      })
+      await expect(run(activities.findPhoneWith, 'ASTRA', { ...lead, countryCode: 'US' })).resolves.toEqual({
+        kind: 'found',
+        phone: '+18391612328',
+      })
+    })
+
+    it.each(['<img src=x onerror=alert(1)>', '12', '=HYPERLINK("http://evil")'])(
+      'treats an unusable value as no data so the next provider is asked: %s',
+      async (number) => {
+        const orion = fakeProvider('ORION', { findPhone: vi.fn().mockResolvedValue({ number }) })
+        const { activities, run } = setup([orion])
+
+        await expect(run(activities.findPhoneWith, 'ORION', lead)).resolves.toEqual({ kind: 'none' })
+      }
+    )
 
     it('passes the activity cancellation signal to the provider', async () => {
       const orion = fakeProvider('ORION')

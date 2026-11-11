@@ -17,6 +17,7 @@ const lead: LeadForEnrichment = {
   lastName: 'L',
   email: 'ada@acme.com',
   jobTitle: 'CTO',
+  countryCode: null,
 }
 
 describe('createPhoneProvidersFromEnv', () => {

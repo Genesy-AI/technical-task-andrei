@@ -5,7 +5,12 @@ import { api } from '../api'
 import { MessageTemplateModal } from './MessageTemplateModal'
 import { CsvImportModal } from './CsvImportModal'
 import { DEFAULT_CELL_CLASS, LEAD_COLUMNS } from './leadColumns'
-import { MAX_LEADS_PER_ENRICH, enrichPhoneFeedback, leadsPollInterval } from '../utils/phoneEnrichment'
+import {
+  MAX_LEADS_PER_ENRICH,
+  enrichPhoneErrorMessage,
+  enrichPhoneFeedback,
+  leadsPollInterval,
+} from '../utils/phoneEnrichment'
 
 export const LeadsList: FC = () => {
   const [selectedLeads, setSelectedLeads] = useState<number[]>([])
@@ -65,8 +70,9 @@ export const LeadsList: FC = () => {
       else if (kind === 'error') toast.error(message)
       else toast(message, { icon: 'ℹ️' })
     },
-    onError: () => {
-      toast.error('Failed to start phone enrichment. Please try again.')
+    onError: (error) => {
+      setIsEnrichDropdownOpen(false)
+      toast.error(enrichPhoneErrorMessage(error))
     },
   })
 

@@ -2,6 +2,7 @@ import { ApplicationFailure, Context, log } from '@temporalio/activity'
 import { USER_MESSAGES } from './domain/messages'
 import type { LeadRepositoryPort, PhoneProviderPort } from './domain/ports'
 import type { FinalOutcome, LeadForEnrichment, ProviderLookupResult, ProviderName } from './domain/types'
+import { normalizePhone } from './normalizePhone'
 
 export type PhoneActivityDeps = { providers: PhoneProviderPort[]; leadRepo: LeadRepositoryPort }
 
@@ -21,7 +22,10 @@ export function createPhoneActivities({ providers, leadRepo }: PhoneActivityDeps
       await leadRepo.markProgress(leadId, provider)
     },
 
-    /** Asks one provider. Provider errors are rethrown as-is so the retry policy applies. */
+    /**
+     * Asks one provider. Provider errors are rethrown as-is so the retry policy applies.
+     * A value that is not a usable phone counts as no data, so the next provider is asked.
+     */
     async findPhoneWith(provider: ProviderName, lead: LeadForEnrichment): Promise<ProviderLookupResult> {
       const adapter = providersByName.get(provider)
       if (!adapter) {
@@ -34,8 +38,20 @@ export function createPhoneActivities({ providers, leadRepo }: PhoneActivityDeps
 
       // Aborted by Temporal on timeout or cancellation, so the HTTP call stops too.
       const signal = Context.current().cancellationSignal
-      const phone = await adapter.findPhone(lead, { signal })
-      return phone ? { kind: 'found', phone } : { kind: 'none' }
+      const raw = await adapter.findPhone(lead, { signal })
+      if (!raw) return { kind: 'none' }
+
+      const phone = normalizePhone(raw, lead.countryCode)
+      if (!phone) {
+        // Log the shape only: the raw value may be junk or personal data.
+        log.warn('Provider returned an unusable phone', {
+          leadId: lead.id,
+          provider,
+          length: raw.number.length,
+        })
+        return { kind: 'none' }
+      }
+      return { kind: 'found', phone }
     },
 
     async saveResult(leadId: number, outcome: FinalOutcome): Promise<void> {

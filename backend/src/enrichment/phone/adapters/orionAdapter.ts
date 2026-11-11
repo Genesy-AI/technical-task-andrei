@@ -1,5 +1,5 @@
 import { getCompanyDomain } from '../domain/emailDomain'
-import type { PhoneProviderPort } from '../domain/ports'
+import type { PhoneProviderPort, ProviderPhone } from '../domain/ports'
 import type { LeadForEnrichment } from '../domain/types'
 import { postJson } from './http'
 import { FindPhoneOptions, ProviderConfig, readPhoneString } from './shared'
@@ -14,7 +14,7 @@ export class OrionAdapter implements PhoneProviderPort {
     return getCompanyDomain(lead.email) !== null
   }
 
-  async findPhone(lead: LeadForEnrichment, options: FindPhoneOptions = {}): Promise<string | null> {
+  async findPhone(lead: LeadForEnrichment, options: FindPhoneOptions = {}): Promise<ProviderPhone | null> {
     const body = (await postJson({
       url: this.config.baseUrl,
       headers: { 'x-auth-me': this.config.apiKey },
@@ -26,6 +26,7 @@ export class OrionAdapter implements PhoneProviderPort {
       signal: options.signal,
     })) as { phone?: unknown }
 
-    return readPhoneString(body.phone)
+    const number = readPhoneString(body.phone)
+    return number ? { number } : null
   }
 }

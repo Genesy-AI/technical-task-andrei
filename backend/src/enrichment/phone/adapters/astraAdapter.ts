@@ -1,4 +1,4 @@
-import type { PhoneProviderPort } from '../domain/ports'
+import type { PhoneProviderPort, ProviderPhone } from '../domain/ports'
 import type { LeadForEnrichment } from '../domain/types'
 import { postJson } from './http'
 import { FindPhoneOptions, ProviderConfig, readPhoneString } from './shared'
@@ -13,7 +13,7 @@ export class AstraAdapter implements PhoneProviderPort {
     return lead.email.trim() !== ''
   }
 
-  async findPhone(lead: LeadForEnrichment, options: FindPhoneOptions = {}): Promise<string | null> {
+  async findPhone(lead: LeadForEnrichment, options: FindPhoneOptions = {}): Promise<ProviderPhone | null> {
     const body = (await postJson({
       url: this.config.baseUrl,
       headers: { apiKey: this.config.apiKey },
@@ -22,6 +22,7 @@ export class AstraAdapter implements PhoneProviderPort {
       signal: options.signal,
     })) as { phoneNmbr?: unknown }
 
-    return readPhoneString(body.phoneNmbr)
+    const number = readPhoneString(body.phoneNmbr)
+    return number ? { number } : null
   }
 }

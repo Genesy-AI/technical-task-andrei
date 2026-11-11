@@ -9,6 +9,7 @@ const lead: LeadForEnrichment = {
   lastName: 'Doe',
   email: 'john.doe@example.com',
   jobTitle: null,
+  countryCode: null,
 }
 const baseUrl = 'https://api.test/astraDialer'
 
@@ -59,7 +60,7 @@ describe('AstraAdapter', () => {
     it('returns phoneNmbr when found', async () => {
       const { adapter } = adapterWith(fixtureResponse('astra', 'found'))
 
-      await expect(adapter.findPhone(lead)).resolves.toBe('8391612328')
+      await expect(adapter.findPhone(lead)).resolves.toEqual({ number: '8391612328' })
     })
 
     it('returns null when phoneNmbr is missing (real API answers {})', async () => {

@@ -1,5 +1,5 @@
 import { ApplicationFailure } from '@temporalio/activity'
-import type { PhoneProviderPort } from '../domain/ports'
+import type { PhoneProviderPort, ProviderPhone } from '../domain/ports'
 import type { LeadForEnrichment } from '../domain/types'
 import { postJson } from './http'
 import { FindPhoneOptions, ProviderConfig } from './shared'
@@ -16,7 +16,7 @@ export class NimbusAdapter implements PhoneProviderPort {
     return lead.email.trim() !== '' && (lead.jobTitle ?? '').trim() !== ''
   }
 
-  async findPhone(lead: LeadForEnrichment, options: FindPhoneOptions = {}): Promise<string | null> {
+  async findPhone(lead: LeadForEnrichment, options: FindPhoneOptions = {}): Promise<ProviderPhone | null> {
     const url = new URL(this.config.baseUrl)
     url.searchParams.set('api', this.config.apiKey)
 
@@ -31,8 +31,9 @@ export class NimbusAdapter implements PhoneProviderPort {
     const digits = readDigits(body.phoneNmbr ?? body.number)
     if (digits === null) return null
 
+    // countryCode is an ISO alpha-2 code (e.g. "ES"), not a dial code. normalizePhone uses it.
     const countryCode = typeof body.countryCode === 'string' ? body.countryCode.trim().toUpperCase() : ''
-    return countryCode ? `${countryCode} ${digits}` : digits
+    return { number: digits, countryCode: countryCode || null }
   }
 }
 

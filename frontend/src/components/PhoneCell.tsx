@@ -1,6 +1,7 @@
 import { FC } from 'react'
 import type { PhoneProvider } from '../api/types/leads/getMany'
 import type { Lead } from './leadColumns'
+import { isLookupStuck } from '../utils/phoneEnrichment'
 
 const PROVIDER_LABEL: Record<PhoneProvider, string> = {
   ORION: 'Orion',
@@ -32,6 +33,17 @@ export const PhoneCell: FC<{ lead: Lead }> = ({ lead }) => {
             {PROVIDER_LABEL[lead.phoneSource]}
           </span>
         )}
+      </div>
+    )
+  }
+
+  if (isLookupStuck(lead)) {
+    return (
+      <div
+        className="text-sm text-red-600 underline decoration-dotted"
+        title="The phone lookup did not finish. Select the lead and run Enrich Phone again."
+      >
+        Timed out
       </div>
     )
   }
