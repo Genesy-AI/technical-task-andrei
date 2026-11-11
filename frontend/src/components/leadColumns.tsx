@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { LeadsGetManyOutput } from '../api/types/leads/getMany'
+import { PhoneCell } from './PhoneCell'
 
 export type Lead = LeadsGetManyOutput[number]
 
@@ -51,7 +52,7 @@ export const LEAD_COLUMNS: LeadColumn[] = [
   {
     key: 'phoneNumber',
     header: 'Phone',
-    render: (lead) => <Text>{orDash(lead.phoneNumber)}</Text>,
+    render: (lead) => <PhoneCell lead={lead} />,
   },
   {
     key: 'linkedinUrl',

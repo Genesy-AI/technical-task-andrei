@@ -1,0 +1,27 @@
+{
+  "found": {
+    "status": 200,
+    "request": { "fullName": "Ada Lovelace", "companyWebsite": "example.com" },
+    "body": { "phone": "8221471051" }
+  },
+  "notFound": {
+    "status": 200,
+    "request": { "fullName": "Ada Lovelace", "companyWebsite": "example.com" },
+    "body": { "phone": null },
+    "note": "Not observed in probing (12 calls, all found). Shape taken from the provider docs."
+  },
+  "serverError": {
+    "status": 500,
+    "body": { "message": "Internal server error" }
+  },
+  "missingInput": {
+    "status": 400,
+    "request": { "fullName": "Ada Lovelace" },
+    "body": { "message": "Missing required input" }
+  },
+  "unauthorized": {
+    "status": 401,
+    "body": "Unauthorized",
+    "note": "Plain text body, not JSON."
+  }
+}

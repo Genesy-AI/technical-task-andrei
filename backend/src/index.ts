@@ -1,3 +1,4 @@
+import './loadEnv'
 import { PrismaClient } from '@prisma/client'
 import express, { Request, Response } from 'express'
 import { Connection, Client } from '@temporalio/client'
@@ -5,9 +6,29 @@ import { verifyEmailWorkflow } from './workflows'
 import { generateMessageFromTemplate } from './utils/messageGenerator'
 import { TEMPLATE_FIELDS } from './utils/templateFields'
 import { parseImportedLead, type ImportWarning } from './utils/leadImport'
-import { runTemporalWorker } from './worker'
+import { runTemporalWorker, TASK_QUEUE } from './worker'
+import { startPhoneEnrichment } from './enrichment/phone/startPhoneEnrichment'
+import { parseEnrichPhoneRequest } from './enrichment/phone/parseEnrichPhoneRequest'
+import { PrismaLeadRepository } from './enrichment/phone/adapters/prismaLeadRepository'
+import { TemporalPhoneWorkflowStarter } from './enrichment/phone/adapters/temporalWorkflowStarter'
+import { enrichPhoneRateLimit } from './enrichment/phone/rateLimit'
 const prisma = new PrismaClient()
 const app = express()
+const phoneLeadRepo = new PrismaLeadRepository(prisma)
+
+// One shared Temporal client, connected on first use. Reset on failure so the next call retries.
+let temporalClient: Promise<Client> | undefined
+function getTemporalClient(): Promise<Client> {
+  if (!temporalClient) {
+    temporalClient = Connection.connect({ address: 'localhost:7233' }).then(
+      (connection) => new Client({ connection, namespace: 'default' })
+    )
+    temporalClient.catch(() => {
+      temporalClient = undefined
+    })
+  }
+  return temporalClient
+}
 app.use(express.json())
 
 app.use(function (req, res, next) {
@@ -317,11 +338,31 @@ app.post('/leads/verify-emails', async (req: Request, res: Response) => {
   }
 })
 
+app.post('/leads/enrich-phone', enrichPhoneRateLimit, async (req: Request, res: Response) => {
+  const parsed = parseEnrichPhoneRequest(req.body)
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error })
+  }
+
+  try {
+    const client = await getTemporalClient()
+    const result = await startPhoneEnrichment(parsed.leadIds, {
+      leads: phoneLeadRepo,
+      workflows: new TemporalPhoneWorkflowStarter(client.workflow, TASK_QUEUE),
+    })
+    // 202: workflows run in the background; progress is on each lead (phoneEnrichmentStatus).
+    res.status(202).json(result)
+  } catch (error) {
+    console.error('Error starting phone enrichment:', error)
+    res.status(500).json({ error: 'Failed to start phone enrichment' })
+  }
+})
+
 app.listen(4000, () => {
   console.log('Express server is running on port 4000')
 })
 
-runTemporalWorker().catch((err) => {
+runTemporalWorker(prisma).catch((err) => {
   console.error(err)
   process.exit(1)
 })

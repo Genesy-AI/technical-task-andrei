@@ -5,6 +5,12 @@ import { api } from '../api'
 import { MessageTemplateModal } from './MessageTemplateModal'
 import { CsvImportModal } from './CsvImportModal'
 import { DEFAULT_CELL_CLASS, LEAD_COLUMNS } from './leadColumns'
+import {
+  MAX_LEADS_PER_ENRICH,
+  enrichPhoneErrorMessage,
+  enrichPhoneFeedback,
+  leadsPollInterval,
+} from '../utils/phoneEnrichment'
 
 export const LeadsList: FC = () => {
   const [selectedLeads, setSelectedLeads] = useState<number[]>([])
@@ -17,6 +23,8 @@ export const LeadsList: FC = () => {
     queryKey: ['leads', 'getMany'],
     queryFn: async () => api.leads.getMany(),
     retry: false,
+    // Keep phone enrichment progress live while any lead is pending/running.
+    refetchInterval: (query) => leadsPollInterval(query.state.data),
   })
 
   const deleteLeadsMutation = useMutation({
@@ -51,6 +59,33 @@ export const LeadsList: FC = () => {
       toast.error('Failed to verify emails. Please try again.')
     },
   })
+
+  const enrichPhoneMutation = useMutation({
+    mutationFn: async (ids: number[]) => api.leads.enrichPhone({ leadIds: ids }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['leads', 'getMany'] })
+      setIsEnrichDropdownOpen(false)
+      const { kind, message } = enrichPhoneFeedback(data)
+      if (kind === 'success') toast.success(message)
+      else if (kind === 'error') toast.error(message)
+      else toast(message, { icon: 'ℹ️' })
+    },
+    onError: (error) => {
+      setIsEnrichDropdownOpen(false)
+      toast.error(enrichPhoneErrorMessage(error))
+    },
+  })
+
+  const handleEnrichPhone = () => {
+    if (selectedLeads.length > MAX_LEADS_PER_ENRICH) {
+      setIsEnrichDropdownOpen(false)
+      toast.error(
+        `You can enrich at most ${MAX_LEADS_PER_ENRICH} leads at a time. ${selectedLeads.length} are selected.`
+      )
+      return
+    }
+    enrichPhoneMutation.mutate(selectedLeads)
+  }
 
   const handleSelectAll = (checked: boolean) => {
     if (checked && leads.data) {
@@ -176,6 +211,29 @@ export const LeadsList: FC = () => {
                           />
                         </svg>
                         Generate Messages
+                      </div>
+                    </button>
+                    <button
+                      onClick={handleEnrichPhone}
+                      disabled={enrichPhoneMutation.isPending}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-wait transition-colors"
+                    >
+                      <div className="flex items-center">
+                        <svg
+                          className="mr-3 h-4 w-4"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                          />
+                        </svg>
+                        Enrich Phone
                       </div>
                     </button>
                     <button

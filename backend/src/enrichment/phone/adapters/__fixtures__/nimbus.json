@@ -1,0 +1,24 @@
+{
+  "found": {
+    "status": 200,
+    "request": { "email": "john.doe@example.com", "jobTitle": "CTO" },
+    "body": { "phoneNmbr": 4088282927, "countryCode": "ES" },
+    "note": "Docs say the field is 'number'; the real API returns 'phoneNmbr' (a JSON number). countryCode is an ISO 3166 alpha-2 code, not a dial code."
+  },
+  "serverError": {
+    "status": 500,
+    "body": { "message": "Internal server error" },
+    "note": "Observed 1 in 9 calls."
+  },
+  "missingJobTitle": {
+    "status": 400,
+    "request": { "email": "john.doe@example.com" },
+    "body": { "message": "Missing required input" },
+    "note": "jobTitle is required -> adapter must skip leads without jobTitle (canHandle = false)."
+  },
+  "unauthorized": {
+    "status": 401,
+    "body": "Unauthorized",
+    "note": "Plain text body, not JSON."
+  }
+}

@@ -12,10 +12,12 @@
     "migrate:dev": "prisma migrate dev",
     "test": "vitest",
     "test:watch": "vitest --watch",
+    "test:debug": "DEBUG_TESTS=1 vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage"
   },
   "devDependencies": {
+    "@temporalio/testing": "1.13.0",
     "@types/express": "^5.0.3",
     "@types/node": "^22.18.1",
     "@vitest/ui": "^3.2.4",
@@ -28,9 +30,12 @@
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
+    "@temporalio/activity": "^1.13.0",
     "@temporalio/client": "^1.13.0",
     "@temporalio/worker": "^1.13.0",
     "@temporalio/workflow": "^1.13.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.7.4",
+    "libphonenumber-js": "^1.13.16"
   }
 }

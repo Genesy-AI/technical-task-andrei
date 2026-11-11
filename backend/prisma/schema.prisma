@@ -22,4 +22,10 @@ model lead {
   phoneNumber    String?
   yearsAtCompany Int?
   linkedinUrl    String?
+  // Phone enrichment (values guarded by TS unions; SQLite has no enums)
+  phoneSource             String? // provider that found phoneNumber: ORION | ASTRA | NIMBUS
+  phoneEnrichmentStatus   String? // PENDING | RUNNING | FOUND | NO_DATA | FAILED
+  phoneEnrichmentProvider String? // provider being tried while RUNNING
+  phoneEnrichmentError    String? // last provider error(s), shown on FAILED
+  phoneEnrichmentRequestedAt DateTime? // last time enrichment was requested; used for cooldown and stuck runs
 }
