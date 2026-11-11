@@ -4,7 +4,7 @@ import { Connection, Client } from '@temporalio/client'
 import { verifyEmailWorkflow } from './workflows'
 import { generateMessageFromTemplate } from './utils/messageGenerator'
 import { TEMPLATE_FIELDS } from './utils/templateFields'
-import { toLeadCreateData } from './utils/leadImport'
+import { parseImportedLead, type ImportWarning } from './utils/leadImport'
 import { runTemporalWorker } from './worker'
 const prisma = new PrismaClient()
 const app = express()
@@ -224,11 +224,17 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
 
     let importedCount = 0
     const errors: Array<{ lead: any; error: string }> = []
+    // Optional values that were dropped, so the caller knows what was not stored.
+    // index is the lead's position in the request's leads array.
+    const warnings: Array<{ index: number; email: string } & ImportWarning> = []
 
     for (const lead of uniqueLeads) {
       try {
-        await prisma.lead.create({ data: toLeadCreateData(lead) })
+        const { data, warnings: leadWarnings } = parseImportedLead(lead)
+        await prisma.lead.create({ data })
         importedCount++
+        const index = leads.indexOf(lead)
+        warnings.push(...leadWarnings.map((w) => ({ index, email: data.email, ...w })))
       } catch (error) {
         errors.push({
           lead: lead,
@@ -243,6 +249,7 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
       duplicatesSkipped: validLeads.length - uniqueLeads.length,
       invalidLeads: leads.length - validLeads.length,
       errors,
+      warnings,
     })
   } catch (error) {
     console.error('Error importing leads:', error)

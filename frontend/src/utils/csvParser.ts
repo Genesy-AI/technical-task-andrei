@@ -46,6 +46,23 @@ export const normalizeLinkedinUrl = (value: string): string | null => {
   return url.href
 }
 
+// Same rule as the backend (backend/src/utils/leadImport.ts). Digits with optional +,
+// spaces and ( ) - . separators, then an optional extension ("x123" or "ext 123").
+const PHONE_PATTERN = /^\+?[\d\s().-]+?(?:\s*(?:x|ext\.?)\s*(\d{1,6}))?$/i
+const MIN_PHONE_DIGITS = 7
+const MAX_PHONE_DIGITS = 15 // E.164 limit, not counting the extension
+const MAX_PHONE_LENGTH = 32
+
+// Returns the phone as typed, or null if it is not a phone number.
+export const parsePhoneNumber = (value: string): string | null => {
+  if (!value || value.length > MAX_PHONE_LENGTH) return null
+  const match = PHONE_PATTERN.exec(value)
+  if (!match) return null
+  const extension = match[1] ?? ''
+  const mainDigits = value.replace(/\D/g, '').length - extension.length
+  return mainDigits >= MIN_PHONE_DIGITS && mainDigits <= MAX_PHONE_DIGITS ? value : null
+}
+
 type CsvField =
   | 'firstName'
   | 'lastName'
@@ -133,6 +150,14 @@ export const parseCsv = (content: string): CsvLead[] => {
       errors.push('Invalid email format')
     }
 
+    let phoneNumber: string | undefined
+    if (raw.phoneNumber) {
+      const phone = parsePhoneNumber(raw.phoneNumber)
+      if (phone === null)
+        errors.push('Invalid phone number. Use digits with optional +, spaces, ( ) - . and an x extension')
+      else phoneNumber = phone
+    }
+
     let yearsAtCompany: number | undefined
     if (raw.yearsAtCompany) {
       const years = parseYearsAtCompany(raw.yearsAtCompany)
@@ -154,7 +179,7 @@ export const parseCsv = (content: string): CsvLead[] => {
       jobTitle: raw.jobTitle || undefined,
       countryCode: raw.countryCode || undefined,
       companyName: raw.companyName || undefined,
-      phoneNumber: raw.phoneNumber || undefined,
+      phoneNumber,
       yearsAtCompany,
       linkedinUrl,
       isValid: errors.length === 0,

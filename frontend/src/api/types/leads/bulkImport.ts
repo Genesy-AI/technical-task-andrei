@@ -21,4 +21,11 @@ export interface LeadsBulkImportOutput {
     lead: any
     error: string
   }>
+  /** Optional values the server did not store because they were not valid. */
+  warnings?: Array<{
+    index: number
+    email: string
+    field: string
+    message: string
+  }>
 }

@@ -332,6 +332,16 @@ Chad,Smith,hancockjames@gmail.com,Child psychotherapist,TV,Global Tech Solutions
     expect(lead.errors).toContain('Invalid LinkedIn URL. Use a linkedin.com/in/ or /company/ link')
   })
 
+  it('should mark the row invalid when the phone is not a phone number', () => {
+    for (const phone of ['call me', '<b>1</b>', '555-01', '1234567890123456', '1'.repeat(40)]) {
+      const [lead] = parseCsv(`${header},phoneNumber\nJohn,Doe,john@example.com,${phone}`)
+      expect(lead.isValid).toBe(false)
+      expect(lead.errors).toContain(
+        'Invalid phone number. Use digits with optional +, spaces, ( ) - . and an x extension'
+      )
+    }
+  })
+
   it('should leave the new fields undefined when cells are empty', () => {
     const [lead] = parseCsv(`${header},phoneNumber,yearsAtCompany,linkedinUrl\nJohn,Doe,john@example.com,,,`)
 

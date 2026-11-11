@@ -118,7 +118,13 @@ export const CsvImportModal: FC<CsvImportModalProps> = ({ isOpen, onClose }) => 
         message += ` (${data.invalidLeads} invalid leads excluded)`
       }
 
-      toast.success(message)
+      const warningCount = data.warnings?.length ?? 0
+      if (warningCount > 0) {
+        message += ` ${warningCount} ${warningCount === 1 ? 'value was' : 'values were'} not valid and left empty.`
+        toast(message, { icon: '⚠️', duration: 8000 })
+      } else {
+        toast.success(message)
+      }
       onClose()
       setCsvData([])
     },
