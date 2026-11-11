@@ -1,13 +1,14 @@
 import { afterAll, beforeAll, describe, it, expect } from 'vitest'
 import { TestWorkflowEnvironment } from '@temporalio/testing'
 import { Worker } from '@temporalio/worker'
-import { ActivityFailure, WorkflowFailedError } from '@temporalio/client'
+import { ActivityFailure, TimeoutFailure, WorkflowFailedError } from '@temporalio/client'
 import { RetryState } from '@temporalio/common'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import { verifyEmailWorkflow } from './workflows'
 import * as realActivities from './activities'
 import { installTemporalTestRuntime } from '../test/installTemporalTestRuntime'
+import { createTemporalEmailVerifier } from '../services/leadVerification/adapters/temporalEmailVerifier'
 
 type Activities = Pick<typeof realActivities, 'verifyEmail'>
 
@@ -83,4 +84,19 @@ describe('verifyEmailWorkflow', () => {
     expect(error.cause).toBeInstanceOf(ActivityFailure)
     expect((error.cause as ActivityFailure).retryState).toBe(RetryState.MAXIMUM_ATTEMPTS_REACHED)
   }, 60_000)
+
+  it('fails (does not hang) when no worker picks up the run', async () => {
+    // Nothing polls this queue, like a crashed or misconfigured worker.
+    const verifier = createTemporalEmailVerifier({
+      client: env.client,
+      taskQueue: `no-worker-${randomUUID()}`,
+      executionTimeout: '2 seconds',
+    })
+    const lead = { id: 424242, firstName: 'No', lastName: 'Worker', email: 'no.worker@example.com' }
+
+    const error = await verifier.verify(lead).catch((e) => e)
+
+    expect(error).toBeInstanceOf(WorkflowFailedError)
+    expect(error.cause).toBeInstanceOf(TimeoutFailure)
+  }, 15_000)
 })

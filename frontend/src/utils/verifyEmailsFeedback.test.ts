@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { AxiosError } from 'axios'
-import { getVerifyEmailsErrorFeedback, getVerifyEmailsFeedback } from './verifyEmailsFeedback'
+import {
+  getVerifyEmailsErrorFeedback,
+  getVerifyEmailsFeedback,
+  getVerifyEmailsLimitMessage,
+  getVerifyEmailsPendingMessage,
+} from './verifyEmailsFeedback'
 import { LeadsVerifyEmailsOutput } from '../api/types/leads/verifyEmails'
 
 const output = (
@@ -74,5 +79,55 @@ describe('getVerifyEmailsErrorFeedback', () => {
       message: 'Failed to verify emails. Please try again.',
     })
     expect(getVerifyEmailsErrorFeedback(new Error('boom')).timedOut).toBe(false)
+  })
+
+  it('shows the backend message for a 400 response', () => {
+    const badRequest = new AxiosError(
+      'Request failed with status code 400',
+      AxiosError.ERR_BAD_REQUEST,
+      undefined,
+      undefined,
+      {
+        status: 400,
+        statusText: 'Bad Request',
+        data: { error: 'You can verify at most 100 emails at a time' },
+        headers: {},
+        config: {} as never,
+      }
+    )
+    expect(getVerifyEmailsErrorFeedback(badRequest)).toEqual({
+      timedOut: false,
+      message: 'You can verify at most 100 emails at a time',
+    })
+  })
+
+  it('does not show server text for other error statuses', () => {
+    const serverError = new AxiosError(
+      'Request failed with status code 500',
+      AxiosError.ERR_BAD_RESPONSE,
+      undefined,
+      undefined,
+      {
+        status: 500,
+        statusText: 'Internal Server Error',
+        data: { error: 'internal detail' },
+        headers: {},
+        config: {} as never,
+      }
+    )
+    expect(getVerifyEmailsErrorFeedback(serverError).message).toBe(
+      'Failed to verify emails. Please try again.'
+    )
+  })
+})
+
+describe('pending and limit messages', () => {
+  it('says how many emails are being verified', () => {
+    expect(getVerifyEmailsPendingMessage(1)).toBe('Verifying 1 email…')
+    expect(getVerifyEmailsPendingMessage(12)).toBe('Verifying 12 emails…')
+  })
+
+  it('states the limit', () => {
+    expect(getVerifyEmailsLimitMessage(100)).toBe('You can verify at most 100 emails at a time')
   })
 })

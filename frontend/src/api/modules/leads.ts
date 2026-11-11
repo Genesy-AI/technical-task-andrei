@@ -9,8 +9,15 @@ import { LeadsBulkImportInput, LeadsBulkImportOutput } from '../types/leads/bulk
 import { LeadsVerifyEmailsInput, LeadsVerifyEmailsOutput } from '../types/leads/verifyEmails'
 import { ApiModule, endpoint } from '../utils'
 
-/** Backend worst case is ~33s per batch of 5 leads; don't leave the user waiting forever. */
+/**
+ * The backend checks 5 leads at a time and stops each one after 45s at most, so a small
+ * selection finishes well within this. Bigger ones may time out here while the backend keeps
+ * working; the user is told to refresh.
+ */
 export const VERIFY_EMAILS_TIMEOUT_MS = 60_000
+
+/** Same cap as the backend (MAX_LEADS_PER_REQUEST in parseVerifyEmailsRequest.ts). */
+export const MAX_VERIFY_EMAILS = 100
 
 export const leadsApi = {
   getMany: endpoint<LeadsGetManyOutput, LeadsGetManyInput>('get', '/leads'),

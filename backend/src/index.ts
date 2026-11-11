@@ -6,6 +6,7 @@ import {
   createLeadVerificationService,
   createPrismaLeadVerificationRepository,
   createTemporalEmailVerifier,
+  parseVerifyEmailsRequest,
 } from './services/leadVerification'
 import { runTemporalWorker } from './worker'
 const prisma = new PrismaClient()
@@ -267,19 +268,14 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
 })
 
 app.post('/leads/verify-emails', async (req: Request, res: Response) => {
-  if (!req.body || typeof req.body !== 'object') {
-    return res.status(400).json({ error: 'Request body is required and must be valid JSON' })
-  }
-
-  const { leadIds } = req.body as { leadIds?: number[] }
-
-  if (!Array.isArray(leadIds) || leadIds.length === 0) {
-    return res.status(400).json({ error: 'leadIds must be a non-empty array' })
+  const parsed = parseVerifyEmailsRequest(req.body)
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error })
   }
 
   try {
     const leads = await prisma.lead.findMany({
-      where: { id: { in: leadIds.map((id) => Number(id)) } },
+      where: { id: { in: parsed.leadIds } },
     })
 
     if (leads.length === 0) {

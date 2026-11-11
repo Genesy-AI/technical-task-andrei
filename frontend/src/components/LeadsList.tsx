@@ -4,7 +4,13 @@ import toast from 'react-hot-toast'
 import { api } from '../api'
 import { MessageTemplateModal } from './MessageTemplateModal'
 import { CsvImportModal } from './CsvImportModal'
-import { getVerifyEmailsErrorFeedback, getVerifyEmailsFeedback } from '../utils/verifyEmailsFeedback'
+import { MAX_VERIFY_EMAILS } from '../api/modules/leads'
+import {
+  getVerifyEmailsErrorFeedback,
+  getVerifyEmailsFeedback,
+  getVerifyEmailsLimitMessage,
+  getVerifyEmailsPendingMessage,
+} from '../utils/verifyEmailsFeedback'
 
 export const LeadsList: FC = () => {
   const [selectedLeads, setSelectedLeads] = useState<number[]>([])
@@ -38,21 +44,24 @@ export const LeadsList: FC = () => {
 
   const verifyEmailsMutation = useMutation({
     mutationFn: async (ids: number[]) => api.leads.verifyEmails({ leadIds: ids }),
-    onMutate: () => {
+    onMutate: (ids) => {
       setIsEnrichDropdownOpen(false)
+      // Stays on screen until the request ends, then the result replaces it.
+      return { toastId: toast.loading(getVerifyEmailsPendingMessage(ids.length)) }
     },
-    onSuccess: (data) => {
+    onSuccess: (data, _ids, context) => {
       queryClient.invalidateQueries({ queryKey: ['leads', 'getMany'] })
       const { type, message } = getVerifyEmailsFeedback(data)
-      if (type === 'success') toast.success(message)
-      else if (type === 'warning') toast(message, { icon: '⚠️', duration: 8000 })
-      else toast.error(message, { duration: 8000 })
+      const id = context?.toastId
+      if (type === 'success') toast.success(message, { id })
+      else if (type === 'warning') toast(message, { id, icon: '⚠️', duration: 8000 })
+      else toast.error(message, { id, duration: 8000 })
     },
-    onError: (error) => {
+    onError: (error, _ids, context) => {
       const { timedOut, message } = getVerifyEmailsErrorFeedback(error)
       // Leads that finished before the timeout are already saved.
       if (timedOut) queryClient.invalidateQueries({ queryKey: ['leads', 'getMany'] })
-      toast.error(message, { duration: 8000 })
+      toast.error(message, { id: context?.toastId, duration: 8000 })
     },
   })
 
@@ -70,6 +79,16 @@ export const LeadsList: FC = () => {
     } else {
       setSelectedLeads((prev) => prev.filter((id) => id !== leadId))
     }
+  }
+
+  const handleVerifyEmails = () => {
+    if (verifyEmailsMutation.isPending || selectedLeads.length === 0) return
+    if (selectedLeads.length > MAX_VERIFY_EMAILS) {
+      setIsEnrichDropdownOpen(false)
+      toast.error(getVerifyEmailsLimitMessage(MAX_VERIFY_EMAILS))
+      return
+    }
+    verifyEmailsMutation.mutate(selectedLeads)
   }
 
   const handleDeleteSelected = () => {
@@ -191,25 +210,49 @@ export const LeadsList: FC = () => {
                       </div>
                     </button>
                     <button
-                      onClick={() => verifyEmailsMutation.mutate(selectedLeads)}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      onClick={handleVerifyEmails}
+                      disabled={verifyEmailsMutation.isPending}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
                     >
                       <div className="flex items-center">
-                        <svg
-                          className="mr-3 h-4 w-4"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M16 12H8m8 0a8 8 0 11-16 0 8 8 0 0116 0zm-8 0V4"
-                          />
-                        </svg>
-                        Verify Email
+                        {verifyEmailsMutation.isPending ? (
+                          <svg
+                            className="animate-spin mr-3 h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            className="mr-3 h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M16 12H8m8 0a8 8 0 11-16 0 8 8 0 0116 0zm-8 0V4"
+                            />
+                          </svg>
+                        )}
+                        {verifyEmailsMutation.isPending ? 'Verifying…' : 'Verify Email'}
                       </div>
                     </button>
                     <button

@@ -15,6 +15,16 @@ function listNames(names: string[]): string {
   return `${names.slice(0, MAX_NAMES_SHOWN).join(', ')} and ${names.length - MAX_NAMES_SHOWN} more`
 }
 
+/** Shown while the request runs, so the user knows something is happening. */
+export function getVerifyEmailsPendingMessage(count: number): string {
+  return `Verifying ${emails(count)}…`
+}
+
+/** Matches the backend limit message, so the user sees the same text either way. */
+export function getVerifyEmailsLimitMessage(max: number): string {
+  return `You can verify at most ${max} emails at a time`
+}
+
 /** Turns the per-lead outcome of a verify request into a single toast. */
 export function getVerifyEmailsFeedback(data: LeadsVerifyEmailsOutput): VerifyEmailsFeedback {
   const failed = data.errors ?? []
@@ -32,6 +42,13 @@ export function getVerifyEmailsErrorFeedback(error: unknown): { timedOut: boolea
   const timedOut =
     error instanceof AxiosError &&
     (error.code === AxiosError.ECONNABORTED || error.code === AxiosError.ETIMEDOUT)
+
+  // A 400 from the backend carries a message written for the user (bad ids, too many leads).
+  const badRequestMessage =
+    error instanceof AxiosError && error.response?.status === 400 ? error.response.data?.error : undefined
+  if (!timedOut && typeof badRequestMessage === 'string' && badRequestMessage) {
+    return { timedOut, message: badRequestMessage }
+  }
 
   return timedOut
     ? {

@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { verifyEmailWorkflow } from '../../../workflows'
-import { createTemporalEmailVerifier, type TemporalWorkflowStarter } from './temporalEmailVerifier'
+import {
+  createTemporalEmailVerifier,
+  VERIFY_EMAIL_WORKFLOW_TIMEOUT,
+  type TemporalWorkflowStarter,
+} from './temporalEmailVerifier'
 import { createPrismaLeadVerificationRepository, type LeadUpdater } from './prismaLeadVerificationRepository'
 
 const jane = { id: 7, firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com' }
@@ -17,7 +21,9 @@ describe('createTemporalEmailVerifier', () => {
 
     expect(execute).toHaveBeenCalledWith(verifyEmailWorkflow, {
       taskQueue: 'test-queue',
-      workflowId: expect.stringMatching(/^verify-email-7-\d+$/),
+      workflowId: 'verify-email-7',
+      workflowIdConflictPolicy: 'USE_EXISTING',
+      workflowExecutionTimeout: VERIFY_EMAIL_WORKFLOW_TIMEOUT,
       args: ['jane.smith@example.com'],
     })
   })
