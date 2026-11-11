@@ -30,6 +30,11 @@ describe('normalizePhone', () => {
     expect(normalizePhone({ number: '4088282927' }, 'ZZ')).toBe('4088282927')
   })
 
+  it('keeps bare digits when adding the country code would pass the 15-digit E.164 limit', () => {
+    expect(normalizePhone({ number: '12345678901234' }, 'DE')).toBe('12345678901234')
+    expect(normalizePhone({ number: '123456789012345' }, 'JP')).toBe('123456789012345')
+  })
+
   it.each([
     ['HTML', '<img src=x onerror=alert(1)>'],
     ['letters', 'call me maybe'],

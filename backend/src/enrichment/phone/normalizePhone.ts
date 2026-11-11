@@ -42,7 +42,9 @@ export function normalizePhone(phone: ProviderPhone, leadCountryCode: string | n
   )
   for (const country of new Set(countries)) {
     const parsed = parsePhoneNumberFromString(digits, country)
-    if (parsed?.isPossible()) return parsed.number
+    // The country code adds digits; E.164 still allows at most 15 in total.
+    const fitsE164 = parsed !== undefined && parsed.number.length - 1 <= MAX_DIGITS
+    if (parsed?.isPossible() && fitsE164) return parsed.number
   }
   return digits
 }
